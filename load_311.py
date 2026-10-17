@@ -1,92 +1,59 @@
 import os
 import re
 import pandas as pd
-from typing import Optional
+import psycopg2
+from psycopg2.extras import execute_batch
+from dotenv import load_dotenv
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv()
 
-# 1. Search common project paths for SR2026.csv
-POSSIBLE_PATHS = [
-    os.path.join(BASE_DIR, "SR2026.csv"),                   # backend/SR2026.csv
-    os.path.join(BASE_DIR, "..", "SR2026.csv"),             # root/SR2026.csv
-    os.path.join(BASE_DIR, "data", "SR2026.csv"),          # backend/data/SR2026.csv
-    os.path.join(BASE_DIR, "..", "data", "SR2026.csv"),     # root/data/SR2026.csv
-    os.path.join(BASE_DIR, "toronto_311_data.csv"),        # fallback name
-]
+DATABASE_URL = os.getenv("DATABASE_URL")
+CSV_PATH = os.path.join(os.path.dirname(__file__), "../data/SR2026.csv")
 
-def find_csv_path() -> Optional[str]:
-    # Check if a custom environment variable is set
-    env_path = os.getenv("CSV_PATH")
-    if env_path and os.path.exists(env_path):
-        return env_path
+def normalize_ward(val):
+    if pd.isna(val): return None
+    match = re.search(r'\b(?:Ward\s*)?(\d{1,2})\b', str(val), re.IGNORECASE)
+    return f"ward-{match.group(1)}" if match else None
 
-    for path in POSSIBLE_PATHS:
-        normalized = os.path.normpath(path)
-        if os.path.exists(normalized):
-            return normalized
-    return None
-
-def normalize_ward_id(ward_value) -> Optional[str]:
-    """
-    Normalizes Toronto 311 Ward entries (e.g., 'Ward 14 - Toronto-Danforth' or 14) to 'ward-14'.
-    """
-    if pd.isna(ward_value):
-        return None
-    match = re.search(r'\b(?:Ward\s*)?(\d{1,2})\b', str(ward_value), re.IGNORECASE)
-    if match:
-        ward_num = match.group(1)
-        return f"ward-{ward_num}"
-    return None
-
-def load_data():
-    csv_file = find_csv_path()
-    
-    if not csv_file:
-        print("Could not find 'SR2026.csv' in backend/ or root directory.")
-        print("Searched locations:")
-        for p in POSSIBLE_PATHS:
-            print(f"  - {os.path.normpath(p)}")
-        print("\nUsing default seeded ward indicators in main.py.")
+def ingest():
+    if not DATABASE_URL:
+        print("Please set DATABASE_URL in .env to use Tiger Data.")
         return
 
-    print(f"Reading Toronto 311 records from: {csv_file}")
-    
-    try:
-        # Load CSV (low_memory=False handles large 311 files without dtype warnings)
-        df = pd.read_csv(csv_file, low_memory=False)
-        print(f"Loaded {len(df):,} rows from SR2026.csv")
-        print(f"Detected columns: {list(df.columns[:8])}...")
+    print("Connecting to Tiger Data...")
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
 
-        # Detect relevant column names (Toronto Open Data can vary between releases)
-        cols = {col.lower().strip(): col for col in df.columns}
-        ward_col = cols.get("ward") or cols.get("ward_number") or cols.get("ward_name")
-        type_col = cols.get("service request type") or cols.get("service_code") or cols.get("category") or cols.get("division")
-        date_col = cols.get("creation date") or cols.get("created_date") or cols.get("date")
+    print(f"Reading {CSV_PATH}...")
+    df = pd.read_csv(CSV_PATH, low_memory=False, on_bad_lines='skip', encoding='latin1')
 
-        if not ward_col or not type_col:
-            print(f"⚠️ Warning: Expected 'Ward' and 'Service Request Type' columns in SR2026.csv. Available: {list(df.columns)}")
-            return
+    # Normalize column names
+    cols = {c.lower().strip(): c for c in df.columns}
+    ward_col = cols.get("ward") or cols.get("ward_name")
+    cat_col = cols.get("service request type") or cols.get("category")
+    date_col = cols.get("creation date") or cols.get("created_date")
 
-        # Normalize ward IDs
-        df["ward_id"] = df[ward_col].apply(normalize_ward_id)
-        valid_records = df.dropna(subset=["ward_id"])
+    df["ward_id"] = df[ward_col].apply(normalize_ward)
+    df["requested_at"] = pd.to_datetime(df[date_col], errors="coerce")
+    df["category"] = df[cat_col].fillna("General Request")
 
-        print(f"Valid records with identified wards: {len(valid_records):,}")
+    clean_df = df.dropna(subset=["ward_id", "requested_at"]).head(10000) # upload 10k rows for fast demo
 
-        # Summary of top categories for Ward 14 & Ward 4
-        for ward_id in ["ward-14", "ward-10", "ward-4"]:
-            ward_subset = valid_records[valid_records["ward_id"] == ward_id]
-            if not ward_subset.empty:
-                top_cats = ward_subset[type_col].value_counts().head(3)
-                print(f"\n--- {ward_id.upper()} Top 311 Issues ({len(ward_subset):,} total) ---")
-                for cat, count in top_cats.items():
-                    pct = (count / len(ward_subset)) * 100
-                    print(f"  • {cat}: {count:,} ({pct:.1f}%)")
+    records = [
+        (row["ward_id"], row["category"][:99], "Closed", row["requested_at"])
+        for _, row in clean_df.iterrows()
+    ]
 
-        print("\nData processing complete! You can now pipe this into schema.sql or use it in main.py.")
-
-    except Exception as e:
-        print(f"Error loading SR2026.csv: {e}")
+    print(f"Inserting {len(records)} records into Tiger Data...")
+    insert_sql = """
+    INSERT INTO service_requests_311 (ward_id, category, status, requested_at)
+    VALUES (%s, %s, %s, %s);
+    """
+    execute_batch(cur, insert_sql, records, page_size=1000)
+    conn.commit()
+    cur.close()
+    conn.close()
+    print("✅ Ingestion to Tiger Data complete!")
 
 if __name__ == "__main__":
-    load_data()
+    ingest()
