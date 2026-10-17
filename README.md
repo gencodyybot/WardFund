@@ -4,7 +4,7 @@
 
 WardFund is a civic-tech prototype that helps Toronto residents explore neighbourhood issues, ask questions about local data, and express their funding priorities through a virtual **$10,000 community budget**. It combines Toronto 311 service-request data, Gemini-powered explanations, a public-preference dashboard, and a Solana Devnet ledger for transparent demonstration transactions.
 
-**Important:** WardFund is a prototype for civic education and public input. Its virtual allocations do **not** move real tax dollars, constitute a binding vote, or determine a government's budget. Government officials could consider aggregated results as one additional input alongside public consultation, evidence, legal requirements, equity considerations, and budget constraints.
+**Important:** WardFund is a prototype for civic education and public input. Its virtual allocations do **not** move real tax dollars, constitute a binding vote, or determine a government's budget. Government officials could consider aggregated results as one additional input alongside public consultation, evidence, legal requirements, equity considerations, and budget constraints. Also, this is the intended final to-be version, which means the current version may not reflect this exactly.
 
 ---
 
