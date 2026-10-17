@@ -1,0 +1,10 @@
+{
+  "name": "wardfund-chain",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WardFund Solana integration",
+  "dependencies": {
+    "@solana/web3.js": "^1.99.0",
+    "dotenv": "^18.0.8"
+  }
+}
