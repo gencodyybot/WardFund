@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WardFund</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f6fb;--panel:#fff;--line:#dde2f0;--text:#161b33;--muted:#5d6788;--accent:#4f46e5;--good:#0f9d74;--warn:#d9480f;--soft:#e8e7fd;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0a0f1f;--panel:#101733;--line:#1e2850;--text:#e8ebf7;--muted:#8e99bd;--accent:#7c7cf5;--good:#34d399;--warn:#fb923c;--soft:#1a2150}}
+:root[data-theme="dark"]{--bg:#0a0f1f;--panel:#101733;--line:#1e2850;--text:#e8ebf7;--muted:#8e99bd;--accent:#7c7cf5;--good:#34d399;--warn:#fb923c;--soft:#1a2150}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:14px 24px;border-bottom:1px solid var(--line)}
+.brand{display:flex;flex-direction:column;margin-right:auto}.brand b{font-size:20px;letter-spacing:-.01em}.brand span{font-size:12px;color:var(--muted)}
+select{font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.wallet{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}.wallet b{color:var(--text)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--good)}
+main{max-width:1280px;margin:0 auto;padding:24px}
+h1{font-size:28px;line-height:1.2;margin:0 0 4px;letter-spacing:-.02em}h2{font-size:16px;margin:0}
+.sub{margin:0 0 20px;color:var(--muted);max-width:60ch}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+.note{font-size:12px;color:var(--muted);margin:2px 0 12px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);padding:0}
+.stat{padding:18px;border-right:1px solid var(--line)}.stat:last-child{border:0}
+.stat .v{font-size:26px;font-weight:700;letter-spacing:-.02em}.stat .l{font-size:13px}.stat .c{font-size:12px;color:var(--muted)}.up{color:var(--good);font-weight:600}
+.row2{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px}
+.chartwrap{overflow-x:auto}.chartwrap svg{min-width:300px;width:100%;height:auto}
+svg text{fill:var(--muted);font-size:9px;font-family:inherit}
+.cats{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:6px}.cats li{display:flex;align-items:center;gap:8px}.cats i{width:9px;height:9px;border-radius:50%}.cats span{margin-left:auto;font-weight:600}
+.legend{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-top:8px}.legend div{flex:1;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--line))}
+.sim{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.proj{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.proj h3{margin:0;font-size:15px}.proj p{margin:0;font-size:12px;color:var(--muted);min-height:54px}
+.tags{font-size:12px;color:var(--muted)}
+.amt{display:flex;justify-content:space-between;align-items:baseline;font-size:20px;font-weight:700}.amt small{font-size:13px;color:var(--muted);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--c,var(--accent))}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.bar .tot{margin-right:auto;font-size:13px;color:var(--muted)}.bar .tot b{display:block;font-size:22px;color:var(--text)}
+button{font:inherit;font-weight:600;color:#fff;background:var(--accent);border:0;border-radius:10px;padding:11px 20px;cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chip{font-size:11px;background:var(--soft);color:var(--accent);border-radius:20px;padding:3px 10px;font-weight:600}
+.hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.ins p{margin:0 0 10px}.ins ul{margin:0 0 10px;padding-left:18px}
+.bal{display:flex;align-items:center;gap:12px;padding:9px 0;border-top:1px solid var(--line)}.bal:first-of-type{border:0}
+.sw{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:#fff;font-weight:700}
+.bal div:nth-child(2){flex:1}.bal small{color:var(--muted);display:block;font-size:12px}
+.tx{font-size:13px}.tx b{color:var(--good)}
+@media (max-width:960px){.layout{grid-template-columns:1fr}}
+@media (max-width:760px){.row2,.sim{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.stat:nth-child(2){border-right:0}.stat:nth-child(-n+2){border-bottom:1px solid var(--line)}.proj p{min-height:0}main,.top{padding-left:16px;padding-right:16px}h1{font-size:23px}}
+</style>
+</head>
+<body>
+<header class="top">
+ <div class="brand"><b>WardFund</b><span>Better data. Stronger communities.</span></div>
+ <label>Ward <select id="ward"></select></label>
+ <div class="wallet"><span class="dot"></span>Solana Devnet connected<span><b id="wft">300.00</b> WFT test tokens</span></div>
+</header>
+<main>
+ <h1 id="title"></h1>
+ <p class="sub">Explore local trends, understand community needs, and allocate funding to make a difference. Figures are sample data until the 311 pipeline is connected.</p>
+ <div class="layout">
+  <div class="col">
+   <section class="panel stats" id="stats"></section>
+   <div class="row2">
+    <section class="panel"><h2>Service request trends</h2><p class="note">Noise complaints, last 12 months</p><div class="chartwrap" id="chart"></div><ul class="cats" id="cats"></ul></section>
+    <section class="panel"><h2>Toronto need map</h2><p class="note">Placeholder shading until real ward data is connected</p><div id="map"></div><div class="legend">Higher need<div></div>Lower need</div></section>
+   </div>
+   <section class="panel"><div class="hd"><h2>Community projects and funding simulator</h2><span class="chip">Total budget: $10,000</span></div><p class="note">Drag a slider and the other two adjust so the total stays at $10,000.</p><div class="sim" id="sim"></div>
+    <div class="bar"><div class="tot">Total allocated<b>$10,000</b></div><button id="go">Execute allocation</button></div></section>
+  </div>
+  <aside class="col">
+   <section class="panel ins"><div class="hd"><h2>AI insights</h2><span class="chip">Sample text</span></div><div id="ins"></div><p class="note">Gemini will write this from your 311 data once the backend is live.</p></section>
+   <section class="panel"><h2>Project balances</h2><div id="bals"></div></section>
+   <section class="panel tx" id="tx"><h2>Recent transaction</h2><p class="note" style="margin:6px 0 0">No allocations yet. Run one to see a simulated receipt here.</p></section>
+  </aside>
+ </div>
+</main>
+<script>
+const $=s=>document.querySelector(s),fmt=n=>n.toLocaleString("en-CA");
+const W=[
+{n:"Ward 14 – Toronto–Danforth",r:2842,a:[1240,892,421],g:[12,18,22,7],p:[28,20,15,12,25],t:[48,62,70,58,63,88,92,80,98,112,135,165],at:[6,3],
+i:"Illegal dumping reports rose 22% over the last 6 months, the fastest increase of any category. That points to a need for more frequent waste collection and public awareness.",
+l:["More waste management bins","Community clean-up programs","Increased bylaw enforcement presence"]},
+{n:"Ward 13 – Toronto Centre",r:3410,a:[1510,610,380],g:[8,9,11,5],p:[31,14,16,9,30],t:[90,95,102,98,110,120,118,125,130,128,140,148],at:[4,2],
+i:"Noise is the largest category and has grown 9% in 6 months, with steady month-over-month increases.",
+l:["Quiet-hours outreach for new residents","Soundproofing grants for community spaces","Late-night patrol coordination"]},
+{n:"Ward 19 – Beaches–East York",r:2105,a:[690,540,560],g:[9,6,14,12],p:[24,18,13,22,23],t:[30,34,33,40,48,55,58,52,50,46,44,47],at:[7,2],
+i:"Parks and recreation requests rose 12%, the fastest growth in this ward, ahead of noise at 6%.",
+l:["Playground and trail repairs","Extended park programming","Community garden expansion"]}];
+const CC=["#6366f1","#2dd4bf","#f59e0b","#38bdf8","#8e99bd"],CN=["Noise","Illegal dumping","Property standards","Parks and recreation","Other"];
+const P=[{n:"Greener Danforth",d:"Plant trees and improve green spaces to create a healthier, cooler neighbourhood.",t:"Lower temperatures, better air quality",c:"#2dd4bf",a:"7xKd…9f2e"},
+{n:"Clean &amp; Safe Streets",d:"Increase waste collection and address illegal dumping hotspots in the area.",t:"Cleaner streets, safer community",c:"#6366f1",a:"3bQm…c1d4"},
+{n:"Community Programs",d:"Fund local youth programs and recreation spaces to build a stronger, more connected community.",t:"Youth engagement, stronger community",c:"#f59e0b",a:"9pLz…7a9b"}];
+let wallet=300,bal=[100,100,100],amt=[3500,4000,2500];
+$("#ward").innerHTML=W.map((w,i)=>`<option value="${i}">${w.n}</option>`).join("");
+function render(){const w=W[$("#ward").value];$("#title").textContent=w.n;
+ const S=[["311 service requests",w.r,w.g[0]],["Noise complaints",w.a[0],w.g[1]],["Illegal dumping",w.a[1],w.g[2]],["Parks and recreation requests",w.a[2],w.g[3]]];
+ $("#stats").innerHTML=S.map(s=>`<div class="stat"><div class="v">${fmt(s[1])}</div><div class="l">${s[0]}</div><div class="c"><span class="up">+${s[2]}%</span> vs last 6 months</div></div>`).join("");
+ const m=Math.max(...w.t),top=Math.ceil(m/50)*50,pts=w.t.map((v,i)=>[30+i*29,130-v/top*120]),line=pts.map(p=>p.join(",")).join(" ");
+ const mo="JFMAMJJASOND".split("");
+ $("#chart").innerHTML=`<svg viewBox="0 0 360 150" role="img" aria-label="Noise complaints by month, rising over the last 12 months"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6366f1" stop-opacity=".35"/><stop offset="1" stop-color="#6366f1" stop-opacity="0"/></linearGradient></defs>`+
+ [0,.5,1].map(f=>`<line x1="30" x2="350" y1="${130-f*120}" y2="${130-f*120}" stroke="var(--line)"/><text x="4" y="${133-f*120}">${Math.round(top*f)}</text>`).join("")+
+ `<polygon points="30,130 ${line} ${pts[11][0]},130" fill="url(#g)"/><polyline points="${line}" fill="none" stroke="#6366f1" stroke-width="2"/>`+
+ pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="#6366f1"/><text x="${p[0]-3}" y="144">${mo[i]}</text>`).join("")+`</svg>`;
+ $("#cats").innerHTML=w.p.map((v,i)=>`<li><i style="background:${CC[i]}"></i>${CN[i]}<span>${v}%</span></li>`).join("");
+ let cells="";for(let r=0;r<6;r++)for(let c=0;c<10;c++){if(Math.abs(c-4.5)/5.2+Math.abs(r-2.5)/3.4>=1.15)continue;
+  const sel=c==w.at[0]&&r==w.at[1],h=sel?92:Math.round(((Math.sin(c*1.7+r)+Math.cos(r*2.1+c*.6)+2)/4)*70+8);
+  cells+=`<rect x="${c*30}" y="${r*30+16}" width="28" height="28" rx="4" style="fill:color-mix(in srgb,var(--accent) ${h}%,var(--line))"${sel?' stroke="var(--text)" stroke-width="2"':''}/>`;}
+ $("#map").innerHTML=`<svg viewBox="0 0 300 200" role="img" aria-label="Stylised need map with the selected ward outlined">${cells}<text x="${w.at[0]*30+14}" y="${w.at[1]*30+10}" text-anchor="middle" style="fill:var(--text);font-weight:700;font-size:10px">${w.n.split(" –")[0]}</text></svg>`;
+ $("#ins").innerHTML=`<p>${w.i}</p><p>Potential projects to consider:</p><ul>${w.l.map(x=>`<li>${x}</li>`).join("")}</ul>`;}
+function simInit(){$("#sim").innerHTML=P.map((p,i)=>`<div class="proj" style="--c:${p.c}"><h3>${p.n}</h3><p>${p.d}</p><div class="tags">${p.t}</div><div class="amt"><span id="a${i}"></span><small id="p${i}"></small></div><input type="range" id="s${i}" min="0" max="10000" step="100" aria-label="${p.n.replace("&amp;","and")} allocation"></div>`).join("");
+ P.forEach((p,i)=>$("#s"+i).oninput=e=>setAmt(i,+e.target.value));drawSim();}
+function setAmt(i,v){const rest=10000-v,o=[0,1,2].filter(k=>k!=i),s=amt[o[0]]+amt[o[1]];amt[i]=v;
+ o.forEach(k=>amt[k]=s?Math.round(amt[k]/s*rest/100)*100:rest/2);amt[o[1]]=rest-amt[o[0]];drawSim();}
+function drawSim(){amt.forEach((a,i)=>{$("#a"+i).textContent="$"+fmt(a);$("#p"+i).textContent=a/100+"%";$("#s"+i).value=a;});}
+function drawBal(){$("#wft").textContent=wallet.toFixed(2);$("#bals").innerHTML=P.map((p,i)=>`<div class="bal"><div class="sw" style="background:${p.c}">${p.n[0]}</div><div>${p.n}<small>${p.a}</small></div><b>${bal[i].toFixed(2)} WFT</b></div>`).join("");
+ $("#go").disabled=wallet<100;$("#go").textContent=wallet<100?"Wallet needs more test tokens":"Execute allocation";}
+$("#go").onclick=()=>{if(wallet<100)return;wallet-=100;amt.forEach((a,i)=>bal[i]+=a/100);drawBal();
+ const k="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz",r=n=>Array.from({length:n},()=>k[Math.random()*k.length|0]).join("");
+ $("#tx").innerHTML=`<h2>Recent transaction</h2><p aria-live="polite" style="margin:8px 0 4px"><b>Allocation executed (simulated).</b></p><p class="note" style="margin:0">Signature ${r(4)}…${r(4)}. No tokens moved. Connect the Solana Devnet backend to make this transfer real.</p>`;};
+$("#ward").onchange=render;render();simInit();drawBal();
+</script>
+</body>
+</html>
