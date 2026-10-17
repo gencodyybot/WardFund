@@ -1,0 +1,10 @@
+.env
+*.keypair.json
+treasury.json
+wallets.json
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+wardfund/backend/data/
