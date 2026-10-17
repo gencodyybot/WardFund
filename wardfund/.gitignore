@@ -8,3 +8,11 @@ __pycache__/
 *.pyc
 .DS_Store
 wardfund/backend/data/
+
+.env
+.venv/
+node_modules/
+backend/data/
+*.csv
+wardfund/chain/sender-wallet.json
+wardfund/chain/wallets.json
