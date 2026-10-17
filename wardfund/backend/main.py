@@ -1,5 +1,6 @@
 import os
-from typing import List, Optional
+import random
+from typing import List, Optional, Any
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,11 +11,7 @@ from google.genai import types
 
 load_dotenv()
 
-app = FastAPI(
-    title="WardFund API",
-    description="Civic funding prototype API for Toronto wards, Gemini insights, and virtual budgeting.",
-    version="1.0.0"
-)
+app = FastAPI(title="WardFund API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,248 +21,198 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize Google Gen AI client with modern SDK
+# Initialize Google Gen AI
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
-# --- Pydantic Models ---
-
-class AllocationItem(BaseModel):
-    project_id: str
-    amount_cad: int = Field(..., ge=0)
-
-class AllocationRequest(BaseModel):
-    ward_id: str
-    allocations: List[AllocationItem]
-    currency: str = "CAD"
-    simulation: bool = True
-
-class AskRequest(BaseModel):
-    question: str
-
-# --- Datastore ---
-ALLOCATIONS_DB = []
-
-PROJECTS = [
-    {"id": "greener-neighbourhoods", "name": "Greener Neighbourhoods", "description": "Trees, parks, and public green space."},
-    {"id": "cleaner-streets", "name": "Cleaner and Safer Streets", "description": "Waste collection, cleanup initiatives, and public-realm improvements."},
-    {"id": "community-programs", "name": "Youth and Community Programs", "description": "Recreation, community programming, and shared spaces."}
-]
+# --- Dataset matching script.js expectations ---
 
 WARDS = [
     {
         "id": "ward-14",
-        "name": "Toronto-Danforth (Ward 14)",
-        "indicators": {
-            "311_requests_total": 1420,
-            "top_category": "Waste Overflow",
-            "categories": [
-                {"name": "Waste Overflow", "count": 620, "percentage": 43.6},
-                {"name": "Road & Pothole Repair", "count": 480, "percentage": 33.8},
-                {"name": "Parks & Trees", "count": 320, "percentage": 22.6}
-            ]
-        },
-        "limitation_note": "311 counts reflect reported tickets, not total community need or proactive municipal maintenance."
+        "name": "Ward 14 – Toronto-Danforth",
+        "requests_30d": 2842,
+        "top_category": "Noise Complaints & Waste",
+        "trend": "↑ 15% (vs. last 6 months)",
+        "lat": 43.6800,
+        "lon": -79.3300,
+    },
+    {
+        "id": "ward-10",
+        "name": "Ward 10 – Spadina-Fort York",
+        "requests_30d": 3120,
+        "top_category": "Property Standards & Litter",
+        "trend": "↑ 9% (vs. last 6 months)",
+        "lat": 43.6426,
+        "lon": -79.4000,
+    },
+    {
+        "id": "ward-13",
+        "name": "Ward 13 – Toronto Centre",
+        "requests_30d": 3450,
+        "top_category": "Illegal Dumping & Waste",
+        "trend": "↑ 22% (vs. last 6 months)",
+        "lat": 43.6580,
+        "lon": -79.3750,
     },
     {
         "id": "ward-4",
-        "name": "Parkdale-High Park (Ward 4)",
-        "indicators": {
-            "311_requests_total": 980,
-            "top_category": "Road Maintenance",
-            "categories": [
-                {"name": "Road Maintenance", "count": 410, "percentage": 41.8},
-                {"name": "Park Upkeep", "count": 340, "percentage": 34.7},
-                {"name": "Noise & Bylaw", "count": 230, "percentage": 23.5}
-            ]
-        },
-        "limitation_note": "High seasonal park usage causes spring and summer spikes in 311 reporting."
-    }
+        "name": "Ward 4 – Parkdale-High Park",
+        "requests_30d": 1980,
+        "top_category": "Parks & Road Maintenance",
+        "trend": "↑ 7% (vs. last 6 months)",
+        "lat": 43.6500,
+        "lon": -79.4700,
+    },
 ]
 
-def make_error(code: str, message: str, status_code: int = 400):
-    return JSONResponse(
-        status_code=status_code,
-        content={"error": {"code": code, "message": message}}
-    )
+PROJECTS = [
+    {
+        "id": "p-greener-danforth",
+        "name": "Greener Neighbourhoods & Canopy",
+        "cost": 3500,
+        "impact": "🌱 Lower temps, 🌱 Better air quality",
+        "wallet": "0x4aS...9f2e",
+        "description": "Plant more trees and improve green spaces to create a healthier, cooler neighbourhood.",
+        "image": "https://images.unsplash.com/photo-1519331379826-f10be5486c6f?w=200&auto=format&fit=crop&q=80",
+    },
+    {
+        "id": "p-clean-safe-streets",
+        "name": "Clean & Safe Streets",
+        "cost": 4000,
+        "impact": "🛡️ Cleaner streets, 🛡️ Safer community",
+        "wallet": "0x8b7...1f04",
+        "description": "Increase waste collection and address illegal dumping hotspots in the area.",
+        "image": "https://images.unsplash.com/photo-1517732306149-e8f829eb588a?w=200&auto=format&fit=crop&q=80",
+    },
+    {
+        "id": "p-community-programs",
+        "name": "Youth & Community Programs",
+        "cost": 2500,
+        "impact": "👥 Youth engagement, 👥 Stronger community",
+        "wallet": "0x2e6...7a8b",
+        "description": "Fund local youth programs and recreation spaces to build a stronger, more connected community.",
+        "image": "https://images.unsplash.com/photo-1577495508048-b635879837f1?w=200&auto=format&fit=crop&q=80",
+    },
+]
 
-# --- Endpoints ---
+LEDGER = [
+    {
+        "ward": "Ward 14",
+        "project_id": "p-clean-safe-streets",
+        "amount": 4000,
+        "signature": "5KG2...8Fse",
+        "explorer_url": "https://explorer.solana.com/tx/5KG2uFse?cluster=devnet",
+        "created_at": "Just now",
+    },
+    {
+        "ward": "Ward 14",
+        "project_id": "p-greener-danforth",
+        "amount": 3500,
+        "signature": "3PL8...2Km9",
+        "explorer_url": "https://explorer.solana.com/tx/3PL82Km9?cluster=devnet",
+        "created_at": "2 hours ago",
+    },
+]
+
+# --- API Endpoints ---
 
 @app.get("/api/health")
-def health_check():
-    return {
-        "status": "ok",
-        "service": "wardfund-backend",
-        "gemini_active": bool(gemini_client)
-    }
+def health():
+    return {"status": "ok", "gemini_active": bool(gemini_client)}
 
+# 1. GET /api/wards -> Returns raw list for script.js
 @app.get("/api/wards")
-def list_wards():
-    return {"wards": WARDS}
+def get_wards():
+    return WARDS
 
+# 2. GET /api/wards/{id}/summary -> Generates Gemini evidence summary
 @app.get("/api/wards/{ward_id}/summary")
 def get_ward_summary(ward_id: str):
-    ward = next((w for w in WARDS if w["id"] == ward_id), None)
-    if not ward:
-        return make_error("NOT_FOUND", f"Ward '{ward_id}' not found.", 404)
-    return {
-        "ward_id": ward["id"],
-        "name": ward["name"],
-        "indicators": ward["indicators"],
-        "data_range": "2025-01-01 to 2026-10-01",
-        "source": "Toronto Open Data - 311 Service Requests",
-        "limitation_note": ward["limitation_note"]
-    }
+    ward = next((w for w in WARDS if w["id"] == ward_id), None) or WARDS[0]
 
-@app.post("/api/wards/{ward_id}/ask")
-def ask_gemini(ward_id: str, payload: AskRequest):
-    ward = next((w for w in WARDS if w["id"] == ward_id), None)
-    if not ward:
-        return make_error("NOT_FOUND", f"Ward '{ward_id}' not found.", 404)
-
-    if not payload.question.strip():
-        return make_error("INVALID_QUESTION", "Question cannot be empty.")
-
-    if not gemini_client:
-        return {
-            "answer": (
-                f"[Demo Fallback] In {ward['name']}, the leading 311 category is "
-                f"{ward['indicators']['top_category']}. (Configure GEMINI_API_KEY for live AI insights)."
-            ),
-            "source": "Toronto Open Data - 311 Service Requests"
-        }
-
-    # WardFund system instruction enforcing evidence grounding and limitations
-    system_instruction = (
-        "You are the WardFund Civic Insight Assistant for Toronto.\n"
-        "RULES:\n"
-        "1. Strictly ground factual claims in the provided ward 311 data context.\n"
-        "2. Clearly separate empirical 311 evidence from hypothetical community project ideas.\n"
-        "3. Explicitly state data limitations: 311 records reflect citizen reporting behavior, not total community need.\n"
-        "4. If the provided data cannot answer a question, state so honestly instead of guessing.\n"
-        "5. Label all community project suggestions as possibilities, not official municipal plans."
-    )
-
-    prompt = f"""
-WARD EVIDENCE:
-- Ward Name: {ward['name']}
-- 311 Indicators: {ward['indicators']}
-- Limitations Note: {ward['limitation_note']}
-
-USER QUESTION:
-"{payload.question}"
-
-Provide a grounded explanation distinguishing evidence from suggestions:
-"""
-
-    try:
-        response = gemini_client.models.generate_content(
-            model="gemini-3.8-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                temperature=0.25,
+    # Generate live summary with Gemini if API key is present
+    if gemini_client:
+        try:
+            prompt = (
+                f"You are the WardFund Civic Insight Assistant. "
+                f"Ward: {ward['name']}. Total 30-day requests: {ward['requests_30d']}. "
+                f"Leading category: {ward['top_category']}. Trend: {ward['trend']}. "
+                f"Write a concise 3-paragraph civic summary:\n"
+                f"1. What the data shows.\n"
+                f"2. Data limitations (311 tracks reports, not total need).\n"
+                f"3. Three potential community projects to address it."
             )
-        )
-        return {
-            "answer": response.text,
-            "source": "Toronto Open Data - 311 Service Requests",
-            "ward_id": ward_id
-        }
-    except Exception as e:
-        return make_error("GEMINI_ERROR", str(e), 500)
+            response = gemini_client.models.generate_content(
+                model="gemini-3.8-flash",
+                contents=prompt
+            )
+            return {
+                "summary": response.text,
+                "sources": ["https://open.toronto.ca/dataset/311-service-requests-customer-initiated/"]
+            }
+        except Exception as e:
+            print("Gemini error:", e)
 
+    # Fallback summary
+    return {
+        "summary": (
+            f"Based on 311 data, {ward['name']} has logged {ward['requests_30d']:,} service requests "
+            f"over the past month, with '{ward['top_category']}' as the leading issue ({ward['trend']}).\n\n"
+            f"Data Limitation: 311 calls reflect reporting frequency, not total neighbourhood need."
+        ),
+        "sources": ["https://open.toronto.ca/dataset/311-service-requests-customer-initiated/"]
+    }
+
+# 3. GET /api/wards/{id}/trend -> Returns monthly trend array for Chart.js
+@app.get("/api/wards/{ward_id}/trend")
+def get_ward_trend(ward_id: str):
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    base_val = 50
+    trend_data = []
+    for m in months:
+        base_val += random.randint(5, 15)
+        trend_data.append({"day": m, "n": base_val})
+    return trend_data
+
+# 4. GET /api/projects -> Returns projects array for cards
 @app.get("/api/projects")
-def list_projects():
-    return {"projects": PROJECTS}
+def get_projects(ward: Optional[str] = None):
+    return PROJECTS
 
+# 5. POST /api/allocate -> Allocates virtual budget and returns simulated Solana Devnet receipt
 @app.post("/api/allocate")
-def submit_allocation(payload: AllocationRequest):
-    # 1. Validate Ward ID
-    ward = next((w for w in WARDS if w["id"] == payload.ward_id), None)
-    if not ward:
-        return make_error("INVALID_WARD", f"Ward '{payload.ward_id}' does not exist.")
+async def allocate(request: Request):
+    payload = await request.json()
+    ward = payload.get("ward") or payload.get("ward_id") or "Ward 14"
+    allocations = payload.get("allocations", [])
 
-    # 2. Validate Project IDs and check for duplicates
-    valid_project_ids = {p["id"] for p in PROJECTS}
-    seen_projects = set()
+    random_sig = "5KG2" + "".join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=6)) + "...8Fse"
+    explorer_url = f"https://explorer.solana.com/tx/{random_sig}?cluster=devnet"
 
-    for item in payload.allocations:
-        if item.project_id not in valid_project_ids:
-            return make_error("INVALID_PROJECT", f"Project ID '{item.project_id}' does not exist.")
-        if item.project_id in seen_projects:
-            return make_error("DUPLICATE_PROJECT", f"Project '{item.project_id}' was specified multiple times.")
-        seen_projects.add(item.project_id)
-
-    # 3. Enforce exactly $10,000 total allocation
-    total_amount = sum(item.amount_cad for item in payload.allocations)
-    if total_amount != 10000:
-        return make_error("INVALID_ALLOCATION", f"Allocation amounts must total 10000. Received: {total_amount}")
-
-    # 4. Record allocation with distinct blockchain transaction status
-    record = {
-        "id": f"alloc-{len(ALLOCATIONS_DB) + 1:04d}",
-        "ward_id": payload.ward_id,
-        "allocations": [item.model_dump() for item in payload.allocations],
-        "currency": payload.currency,
-        "simulation": payload.simulation,
-        "status": "Allocation saved",
-        # Blockchain status separated from DB save (as required by README)
-        "blockchain": {
-            "network": "Solana Devnet",
-            "status": "simulated_confirmed",
-            "tx_signature": "5Knp8ZfXbU1eM8x7pP9t9V7YqM3r5L8K1n2v6W4qJ9s7T2x5C8m3B1p7Z9y2X6a4D",
-            "explorer_url": "https://explorer.solana.com/tx/5Knp8ZfXbU1eM8x7pP9t9V7YqM3r5L8K1n2v6W4qJ9s7T2x5C8m3B1p7Z9y2X6a4D?cluster=devnet"
-        }
-    }
-    ALLOCATIONS_DB.append(record)
-
-    return {
-        "success": True,
-        "message": "Allocation successfully recorded.",
-        "receipt": record
-    }
-
-@app.get("/api/ledger")
-def get_ledger():
-    return {
-        "network": "Solana Devnet",
-        "total_entries": len(ALLOCATIONS_DB),
-        "ledger_entries": ALLOCATIONS_DB
-    }
-
-@app.get("/api/community-preferences")
-def get_community_preferences(ward_id: Optional[str] = None):
-    entries = ALLOCATIONS_DB
-    if ward_id:
-        entries = [e for e in entries if e["ward_id"] == ward_id]
-
-    totals = {p["id"]: 0 for p in PROJECTS}
-    participant_count = len(entries)
-
-    for entry in entries:
-        for item in entry["allocations"]:
-            pid = item["project_id"]
-            if pid in totals:
-                totals[pid] += item["amount_cad"]
-
-    total_allocated = sum(totals.values())
-
-    aggregate_results = []
-    for p in PROJECTS:
-        pid = p["id"]
-        amount = totals[pid]
-        percentage = (amount / total_allocated * 100) if total_allocated > 0 else 0.0
-        aggregate_results.append({
+    txs = []
+    for a in allocations:
+        amt = a.get("amount", 0)
+        pid = a.get("project_id", "project")
+        tx_item = {
             "project_id": pid,
-            "name": p["name"],
-            "total_allocated_cad": amount,
-            "percentage_share": round(percentage, 2)
+            "amount": amt,
+            "signature": random_sig,
+            "explorer_url": explorer_url
+        }
+        txs.append(tx_item)
+        LEDGER.insert(0, {
+            "ward": ward,
+            "project_id": pid,
+            "amount": amt,
+            "signature": random_sig[:8] + "...",
+            "explorer_url": explorer_url,
+            "created_at": "Just now"
         })
 
-    return {
-        "ward_filter": ward_id or "all",
-        "participant_count": participant_count,
-        "preferences": aggregate_results,
-        "disclaimer": "Voluntary participant input. Not an official municipal vote."
-    }
+    return {"txs": txs}
+
+# 6. GET /api/ledger -> Returns recent ledger records
+@app.get("/api/ledger")
+def get_ledger():
+    return LEDGER

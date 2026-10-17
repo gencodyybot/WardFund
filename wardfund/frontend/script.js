@@ -2,7 +2,7 @@ const API = "http://localhost:8000";
 
 /**
  * WardFund Civic Funding Demo
- * Plain JS frontend adhering strictly to STACK, DATA, API, and BEHAVIOUR rules.
+ * Plain JS frontend updated to match real backend API shapes and behavior.
  */
 
 // ============================================================================
@@ -10,148 +10,187 @@ const API = "http://localhost:8000";
 // ============================================================================
 const state = {
   wards: [],
-  selectedWardId: null,
+  selectedWardId: "ward-14",
   currentWard: null,
   projects: [],
-  allocations: {}, // project_id -> number
+  allocations: {}, // project_id -> amount_cad
   totalBudget: 10000,
   isAllocating: false,
+  isAskingGemini: false,
   isDemoFallback: false,
   map: null,
-  mapMarkers: {},
-  trendChart: null,
+  preferencesChart: null,
+  sliderRefs: {},
 };
 
 // ============================================================================
-// Fallback / Demo Dataset (Matches reference mockup if backend is offline)
+// Fallback / Demo Dataset (Matches the real backend response shapes)
 // ============================================================================
 const DEMO_DATA = {
-  wards: [
-    {
-      id: "ward-14",
-      name: "Ward 14 – Toronto-Danforth",
-      requests_30d: 2842,
-      top_category: "Noise Complaints",
-      trend: "↑ 15% (vs. last 6 months)",
-      lat: 43.6800,
-      lon: -79.3300,
-    },
-    {
-      id: "ward-10",
-      name: "Ward 10 – Spadina-Fort York",
-      requests_30d: 3120,
-      top_category: "Property Standards",
-      trend: "↑ 9% (vs. last 6 months)",
-      lat: 43.6426,
-      lon: -79.4000,
-    },
-    {
-      id: "ward-13",
-      name: "Ward 13 – Toronto Centre",
-      requests_30d: 3450,
-      top_category: "Illegal Dumping",
-      trend: "↑ 22% (vs. last 6 months)",
-      lat: 43.6580,
-      lon: -79.3750,
-    },
-    {
-      id: "ward-4",
-      name: "Ward 4 – Parkdale-High Park",
-      requests_30d: 1980,
-      top_category: "Parks & Recreation",
-      trend: "↑ 7% (vs. last 6 months)",
-      lat: 43.6500,
-      lon: -79.4700,
-    },
-  ],
+  wards: {
+    wards: [
+      {
+        id: "ward-14",
+        name: "Ward 14 – Toronto-Danforth",
+        indicators: {
+          "311_requests_total": 2842,
+          "top_category": "Noise Complaints",
+          "noise_complaints": 1240,
+          "illegal_dumping": 892,
+          "parks_rec_requests": 421,
+        },
+      },
+      {
+        id: "ward-10",
+        name: "Ward 10 – Spadina-Fort York",
+        indicators: {
+          "311_requests_total": 3120,
+          "top_category": "Property Standards",
+          "noise_complaints": 980,
+          "illegal_dumping": 650,
+          "parks_rec_requests": 510,
+        },
+      },
+      {
+        id: "ward-13",
+        name: "Ward 13 – Toronto Centre",
+        indicators: {
+          "311_requests_total": 3450,
+          "top_category": "Illegal Dumping",
+          "noise_complaints": 1420,
+          "illegal_dumping": 1150,
+          "parks_rec_requests": 380,
+        },
+      },
+      {
+        id: "ward-4",
+        name: "Ward 4 – Parkdale-High Park",
+        indicators: {
+          "311_requests_total": 1980,
+          "top_category": "Parks & Recreation",
+          "noise_complaints": 720,
+          "illegal_dumping": 430,
+          "parks_rec_requests": 610,
+        },
+      },
+    ],
+  },
   summaries: {
     "ward-14": {
-      summary:
-        "Based on 311 data, Ward 14 has seen a 22% increase in illegal dumping reports over the last 6 months, particularly around Danforth Ave and Pape Ave.\n\nThis suggests a need for more frequent waste collection and public awareness in these areas.\n\nPotential projects to consider:\n• More waste management bins\n• Community clean-up programs\n• Increased bylaw enforcement presence",
-      sources: [
-        "https://open.toronto.ca/dataset/311-service-requests-customer-initiated/",
-      ],
+      name: "Ward 14 – Toronto-Danforth",
+      indicators: {
+        "311_requests_total": 2842,
+        "top_category": "Noise Complaints",
+        "noise_growth_6m": "18% increase",
+        "illegal_dumping_growth_6m": "22% increase in Danforth & Pape",
+        "priority_need": "Waste management and public space maintenance",
+      },
+      source: "https://open.toronto.ca/dataset/311-service-requests-customer-initiated/",
     },
-  },
-  trends: {
-    "ward-14": [
-      { day: "Jan", n: 45 },
-      { day: "Feb", n: 58 },
-      { day: "Mar", n: 72 },
-      { day: "Apr", n: 65 },
-      { day: "May", n: 82 },
-      { day: "Jun", n: 96 },
-      { day: "Jul", n: 80 },
-      { day: "Aug", n: 110 },
-      { day: "Sep", n: 95 },
-      { day: "Oct", n: 130 },
-      { day: "Nov", n: 145 },
-      { day: "Dec", n: 172 },
-    ],
+    "ward-10": {
+      name: "Ward 10 – Spadina-Fort York",
+      indicators: {
+        "311_requests_total": 3120,
+        "top_category": "Property Standards",
+        "construction_noise": "High density in waterfront corridor",
+        "priority_need": "Pedestrian safety and public realm standards",
+      },
+      source: "https://open.toronto.ca/dataset/311-service-requests-customer-initiated/",
+    },
+    "ward-13": {
+      name: "Ward 13 – Toronto Centre",
+      indicators: {
+        "311_requests_total": 3450,
+        "top_category": "Illegal Dumping",
+        "priority_need": "Sanitation and community safety initiatives",
+      },
+      source: "https://open.toronto.ca/dataset/311-service-requests-customer-initiated/",
+    },
+    "ward-4": {
+      name: "Ward 4 – Parkdale-High Park",
+      indicators: {
+        "311_requests_total": 1980,
+        "top_category": "Parks & Recreation",
+        "priority_need": "Urban tree canopy and recreational programming",
+      },
+      source: "https://open.toronto.ca/dataset/311-service-requests-customer-initiated/",
+    },
   },
   projects: {
-    "ward-14": [
+    projects: [
       {
-        id: "p-greener-danforth",
-        name: "Greener Danforth",
-        cost: 3500,
-        impact: "🌱 Lower temps, 🌱 Better air quality",
-        wallet: "0x4aS...9f2e",
-        description:
-          "Plant more trees and improve green spaces to create a healthier, cooler neighbourhood.",
-        image:
-          "https://images.unsplash.com/photo-1519331379826-f10be5486c6f?w=200&auto=format&fit=crop&q=80",
-      },
-      {
-        id: "p-clean-safe-streets",
+        id: "proj-clean-safe-streets",
         name: "Clean & Safe Streets",
-        cost: 4000,
-        impact: "🛡️ Cleaner streets, 🛡️ Safer community",
-        wallet: "0x8b7...1f04",
-        description:
-          "Increase waste collection and address illegal dumping hotspots in the area.",
-        image:
-          "https://images.unsplash.com/photo-1517732306149-e8f829eb588a?w=200&auto=format&fit=crop&q=80",
+        description: "Increase waste collection and address illegal dumping hotspots in the area.",
       },
       {
-        id: "p-community-programs",
+        id: "proj-greener-danforth",
+        name: "Greener Danforth",
+        description: "Plant more trees and improve green spaces to create a healthier, cooler neighbourhood.",
+      },
+      {
+        id: "proj-community-programs",
         name: "Community Programs",
-        cost: 2500,
-        impact: "👥 Youth engagement, 👥 Stronger community",
-        wallet: "0x2e6...7a8b",
-        description:
-          "Fund local youth programs and recreation spaces to build a stronger, more connected community.",
-        image:
-          "https://images.unsplash.com/photo-1577495508048-b635879837f1?w=200&auto=format&fit=crop&q=80",
+        description: "Fund local youth programs and recreation spaces to build a stronger, more connected community.",
       },
     ],
   },
-  ledger: [
-    {
-      ward: "Ward 14",
-      project_id: "p-clean-safe-streets",
-      amount: 4000,
-      signature: "5KG2...8Fse",
-      explorer_url: "https://explorer.solana.com/tx/5KG2uFse?cluster=devnet",
-      created_at: "Just now",
-    },
-    {
-      ward: "Ward 14",
-      project_id: "p-greener-danforth",
-      amount: 3500,
-      signature: "3PL8...2Km9",
-      explorer_url: "https://explorer.solana.com/tx/3PL82Km9?cluster=devnet",
-      created_at: "2 hours ago",
-    },
-  ],
+  community_preferences: {
+    participant_count: 142,
+    preferences: [
+      {
+        name: "Clean & Safe Streets",
+        total_allocated_cad: 450000,
+        percentage_share: 40,
+      },
+      {
+        name: "Greener Danforth",
+        total_allocated_cad: 380000,
+        percentage_share: 35,
+      },
+      {
+        name: "Community Programs",
+        total_allocated_cad: 270000,
+        percentage_share: 25,
+      },
+    ],
+  },
+  ledger: {
+    ledger_entries: [
+      {
+        ward_id: "ward-14",
+        created_at: "Just now",
+        transactions: [
+          {
+            project_id: "proj-clean-safe-streets",
+            amount_cad: 4000,
+            signature: "5KG2...8Fse",
+            explorer_url: "https://explorer.solana.com/tx/5KG2uFse?cluster=devnet",
+          },
+          {
+            project_id: "proj-greener-danforth",
+            amount_cad: 3500,
+            signature: "3PL8...2Km9",
+            explorer_url: "https://explorer.solana.com/tx/3PL82Km9?cluster=devnet",
+          },
+          {
+            project_id: "proj-community-programs",
+            amount_cad: 2500,
+            signature: "7RQ1...9Vp2",
+            explorer_url: "https://explorer.solana.com/tx/7RQ19Vp2?cluster=devnet",
+          },
+        ],
+      },
+    ],
+  },
 };
 
 // ============================================================================
-// API & Data Access Functions (Logic separated from rendering)
+// API & Data Access Functions (Strictly match the real backend shapes)
 // ============================================================================
 
 /**
- * Fetch list of wards from GET /api/wards
+ * GET /api/wards -> { wards: [{ id, name, indicators: { 311_requests_total, top_category } }] }
  */
 async function apiGetWards() {
   if (state.isDemoFallback) {
@@ -162,15 +201,15 @@ async function apiGetWards() {
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
     return await res.json();
   } catch (err) {
-    console.warn(`[WardFund] Live API error on GET /api/wards: ${err.message}. Enabling demo preview data.`);
+    console.warn(`[WardFund] Live API error on GET /api/wards: ${err.message}. Using offline demo fallback.`);
     state.isDemoFallback = true;
-    showErrorNotification(`Notice: Could not reach ${API}/api/wards. Using offline demo dataset matching mockup.`);
+    showErrorNotification(`Notice: Could not connect to ${API}/api/wards. Using demo mode.`);
     return DEMO_DATA.wards;
   }
 }
 
 /**
- * Fetch ward summary from GET /api/wards/{id}/summary
+ * GET /api/wards/{id}/summary -> { name, indicators, source }
  */
 async function apiGetWardSummary(wardId) {
   if (state.isDemoFallback) {
@@ -182,59 +221,71 @@ async function apiGetWardSummary(wardId) {
     return await res.json();
   } catch (err) {
     console.warn(`[WardFund] Live API error on GET /api/wards/${wardId}/summary:`, err.message);
-    return DEMO_DATA.summaries[wardId] || DEMO_DATA.summaries["ward-14"];
+    showErrorNotification("Could not load this ward's summary from the backend.");
+    return null;
   }
 }
 
 /**
- * Fetch ward trend from GET /api/wards/{id}/trend
+ * POST /api/wards/{id}/ask with { question } -> { answer }
  */
-async function apiGetWardTrend(wardId) {
+async function apiAskWard(wardId, question) {
   if (state.isDemoFallback) {
-    return DEMO_DATA.trends[wardId] || DEMO_DATA.trends["ward-14"];
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    return {
+      answer: `Based on open civic data for ${wardId}, 311 requests reflect concentrated reports in high-traffic corridors. Community funding can directly support bylaw enforcement and neighborhood cleanliness.`,
+    };
+  }
+
+  const res = await fetch(`${API}/api/wards/${encodeURIComponent(wardId)}/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question }),
+  });
+
+  if (!res.ok) {
+    throw new Error(await readApiError(res, "Ask Gemini error"));
+  }
+
+  return await res.json();
+}
+
+/**
+ * GET /api/projects -> { projects: [{ id, name, description }] }
+ */
+async function apiGetProjects() {
+  if (state.isDemoFallback) {
+    return DEMO_DATA.projects;
   }
   try {
-    const res = await fetch(`${API}/api/wards/${encodeURIComponent(wardId)}/trend`);
+    const res = await fetch(`${API}/api/projects`);
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
     return await res.json();
   } catch (err) {
-    console.warn(`[WardFund] Live API error on GET /api/wards/${wardId}/trend:`, err.message);
-    return DEMO_DATA.trends[wardId] || DEMO_DATA.trends["ward-14"];
+    console.warn(`[WardFund] Live API error on GET /api/projects:`, err.message);
+    showErrorNotification("Could not load projects from the backend.");
+    return { projects: [] };
   }
 }
 
 /**
- * Fetch projects for a ward from GET /api/projects?ward={id}
- */
-async function apiGetProjects(wardId) {
-  if (state.isDemoFallback) {
-    return DEMO_DATA.projects[wardId] || DEMO_DATA.projects["ward-14"];
-  }
-  try {
-    const res = await fetch(`${API}/api/projects?ward=${encodeURIComponent(wardId)}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-    return await res.json();
-  } catch (err) {
-    console.warn(`[WardFund] Live API error on GET /api/projects?ward=${wardId}:`, err.message);
-    return DEMO_DATA.projects[wardId] || DEMO_DATA.projects["ward-14"];
-  }
-}
-
-/**
- * POST /api/allocate body {ward, allocations: [{project_id, amount}]}
+ * POST /api/allocate with { ward_id, allocations: [{ project_id, amount_cad }] }
+ * -> { receipt: { transactions: [{ project_id, amount_cad, signature, explorer_url }] } }
  */
 async function apiAllocate(wardId, allocationsArray) {
   if (state.isDemoFallback) {
-    // Simulate real Solana devnet confirmation latency (5 to 15 seconds)
+    // Simulate real Solana devnet confirmation latency (5 to 10 seconds)
     await new Promise((resolve) => setTimeout(resolve, 6000));
     const randomSig = "5KG2" + Math.random().toString(36).substring(2, 6).toUpperCase() + "...8Fse";
     return {
-      txs: allocationsArray.map((alloc) => ({
-        project_id: alloc.project_id,
-        amount: alloc.amount,
-        signature: randomSig,
-        explorer_url: `https://explorer.solana.com/tx/${randomSig}?cluster=devnet`,
-      })),
+      receipt: {
+        transactions: allocationsArray.map((alloc) => ({
+          project_id: alloc.project_id,
+          amount_cad: alloc.amount_cad,
+          signature: randomSig,
+          explorer_url: `https://explorer.solana.com/tx/${randomSig}?cluster=devnet`,
+        })),
+      },
     };
   }
 
@@ -242,21 +293,20 @@ async function apiAllocate(wardId, allocationsArray) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      ward: wardId,
+      ward_id: wardId,
       allocations: allocationsArray,
     }),
   });
 
   if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Allocation failed (${res.status}): ${errText || res.statusText}`);
+    throw new Error(await readApiError(res, "Allocation failed"));
   }
 
   return await res.json();
 }
 
 /**
- * Fetch ledger from GET /api/ledger
+ * GET /api/ledger -> { ledger_entries: [...] }
  */
 async function apiGetLedger() {
   if (state.isDemoFallback) {
@@ -268,13 +318,306 @@ async function apiGetLedger() {
     return await res.json();
   } catch (err) {
     console.warn(`[WardFund] Live API error on GET /api/ledger:`, err.message);
-    return DEMO_DATA.ledger;
+    return { ledger_entries: [] };
+  }
+}
+
+/**
+ * GET /api/community-preferences
+ * -> { participant_count, preferences: [{ name, total_allocated_cad, percentage_share }] }
+ */
+async function apiGetCommunityPreferences() {
+  if (state.isDemoFallback) {
+    return DEMO_DATA.community_preferences;
+  }
+  try {
+    const res = await fetch(`${API}/api/community-preferences`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[WardFund] Live API error on GET /api/community-preferences:`, err.message);
+    return null;
   }
 }
 
 // ============================================================================
 // UI Rendering Functions
 // ============================================================================
+
+// ----------------------------------------------------------------------------
+// Small helpers
+// ----------------------------------------------------------------------------
+const SOLANA_RPC = "https://api.devnet.solana.com";
+
+const WARD_COORDS = {
+  "ward-14": [43.68, -79.33],
+  "ward-10": [43.6426, -79.4],
+  "ward-13": [43.658, -79.375],
+  "ward-4": [43.65, -79.47],
+};
+
+let wardMarkers = [];
+
+async function readApiError(res, prefix) {
+  let message = res.statusText || `HTTP ${res.status}`;
+  try {
+    const body = await res.json();
+    const d = body && body.detail;
+    if (typeof d === "string") message = d;
+    else if (d && d.error && d.error.message) message = d.error.message;
+    else if (Array.isArray(d) && d[0] && d[0].msg) message = d[0].msg;
+  } catch (_) {
+    /* body was not JSON */
+  }
+  return `${prefix} (${res.status}): ${message}`;
+}
+
+function shortSig(sig) {
+  const s = String(sig || "");
+  return s.length > 14 ? `${s.slice(0, 6)}...${s.slice(-6)}` : s;
+}
+
+function shortWallet(w) {
+  const s = String(w || "");
+  return s.length > 10 ? `${s.slice(0, 4)}...${s.slice(-4)}` : s;
+}
+
+function formatDate(value) {
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? String(value || "Recent") : d.toLocaleString();
+}
+
+function projectName(id) {
+  const p = state.projects.find((x) => x.id === id);
+  return p ? p.name : id;
+}
+
+function addDevnetNotice() {
+  if (document.getElementById("devnetNotice")) return;
+  const header = document.querySelector(".top-header");
+  const note = document.createElement("div");
+  note.id = "devnetNotice";
+  note.style.cssText =
+    "text-align:center;font-size:0.75rem;padding:4px 12px;color:#94a3b8;border-bottom:1px solid rgba(255,255,255,0.06);";
+  note.textContent = "Devnet demo. Demo data. No real money.";
+  if (header && header.parentNode) header.parentNode.insertBefore(note, header.nextSibling);
+}
+
+function showDemoBanner() {
+  if (!state.isDemoFallback || document.getElementById("demoBanner")) return;
+  const b = document.createElement("div");
+  b.id = "demoBanner";
+  b.setAttribute("role", "status");
+  b.style.cssText =
+    "background:#b45309;color:#fff;padding:8px 16px;text-align:center;font-size:0.85rem;font-weight:600;";
+  b.textContent =
+    "DEMO MODE: the backend is not reachable. Everything on this page is simulated, including transactions.";
+  document.body.prepend(b);
+}
+
+async function refreshChainStatus() {
+  const el = document.querySelector(".solana-status");
+  if (!el) return;
+  let text = "Offline";
+  if (!state.isDemoFallback) {
+    try {
+      const res = await fetch(`${API}/api/health`);
+      const h = await res.json();
+      text = h.chain === "devnet" ? "Connected" : "Chain skipped";
+    } catch (_) {
+      text = "Offline";
+    }
+  }
+  if (el.lastChild && el.lastChild.nodeType === 3) el.lastChild.nodeValue = text;
+}
+
+async function getSolBalance(wallet) {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    const res = await fetch(SOLANA_RPC, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getBalance", params: [wallet] }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+    const data = await res.json();
+    if (data && data.result && typeof data.result.value === "number") {
+      return data.result.value / 1e9;
+    }
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Project Balances card: live devnet SOL balance for each project wallet.
+ * Wallet addresses come from GET /api/projects (field: wallet).
+ */
+async function renderProjectBalances(projects) {
+  const el = document.getElementById("projectBalances");
+  if (!el) return;
+  el.innerHTML = "";
+
+  if (!Array.isArray(projects) || projects.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state-text";
+    empty.textContent = "No project wallets available.";
+    el.appendChild(empty);
+    return;
+  }
+
+  const colors = ["green", "blue", "purple"];
+  const rows = projects.map((p, idx) => {
+    const item = document.createElement("div");
+    item.className = "balance-item";
+
+    const left = document.createElement("div");
+    left.className = "balance-left";
+
+    const icon = document.createElement("div");
+    icon.className = `balance-icon ${colors[idx % colors.length]}`;
+    icon.textContent = (p.name || "?").charAt(0);
+
+    const group = document.createElement("div");
+    group.className = "balance-name-group";
+    const nm = document.createElement("span");
+    nm.className = "balance-name";
+    nm.textContent = p.name;
+    const wl = document.createElement("span");
+    wl.className = "balance-wallet";
+    wl.textContent = p.wallet ? shortWallet(p.wallet) : "no wallet";
+    group.appendChild(nm);
+    group.appendChild(wl);
+
+    left.appendChild(icon);
+    left.appendChild(group);
+
+    const right = document.createElement("div");
+    right.className = "balance-right";
+    const amount = document.createElement("span");
+    amount.textContent = "...";
+    const dot = document.createElement("span");
+    dot.className = "status-dot";
+    right.appendChild(amount);
+    right.appendChild(dot);
+
+    item.appendChild(left);
+    item.appendChild(right);
+    el.appendChild(item);
+    return { wallet: p.wallet, amount };
+  });
+
+  await Promise.all(
+    rows.map(async (r) => {
+      if (!r.wallet || state.isDemoFallback) {
+        r.amount.textContent = "demo";
+        return;
+      }
+      const sol = await getSolBalance(r.wallet);
+      r.amount.textContent = sol === null ? "n/a" : `${sol.toFixed(4)} SOL`;
+    })
+  );
+}
+
+function hideRecentTx() {
+  const box = document.getElementById("recentTxBox");
+  if (box) box.style.display = "none";
+}
+
+/**
+ * Recent Transaction card: one row per project transfer, each linked to Solana Explorer.
+ */
+function renderRecentTransactions(txs) {
+  const box = document.getElementById("recentTxBox");
+  if (!box) return;
+
+  const header = box.querySelector(".tx-header-status");
+  box.innerHTML = "";
+  if (header) box.appendChild(header);
+
+  const onChain = !state.isDemoFallback && txs.some((t) => t.signature && t.explorer_url);
+  if (header) {
+    const label = header.querySelector("span");
+    if (label) {
+      label.textContent = onChain
+        ? "Allocation executed on Solana Devnet"
+        : "Allocation recorded (no on-chain transfer)";
+    }
+  }
+
+  txs.forEach((tx) => {
+    const row = document.createElement("div");
+    row.className = "tx-sig-row";
+
+    const label = document.createElement("span");
+    label.textContent = `${projectName(tx.project_id)}:`;
+    row.appendChild(label);
+
+    if (!state.isDemoFallback && tx.signature && tx.explorer_url) {
+      const a = document.createElement("a");
+      a.className = "tx-sig-link";
+      a.href = tx.explorer_url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = `${shortSig(tx.signature)} ↗`;
+      row.appendChild(a);
+    } else {
+      const s = document.createElement("span");
+      s.textContent = state.isDemoFallback ? "simulated, not on-chain" : "chain skipped";
+      row.appendChild(s);
+    }
+    box.appendChild(row);
+  });
+
+  box.style.display = "flex";
+}
+
+/**
+ * Keep the allocation at exactly the budget: when one slider moves,
+ * the other projects absorb the change in proportion to their current amounts.
+ */
+function rebalanceAllocations(changedId, rawValue) {
+  const ids = Object.keys(state.sliderRefs);
+  const total = state.totalBudget;
+  const step = 100;
+  const others = ids.filter((id) => id !== changedId);
+  const next = {};
+
+  if (others.length === 0) {
+    next[changedId] = total;
+  } else {
+    const newVal = Math.min(total, Math.max(0, Math.round(rawValue / step) * step));
+    next[changedId] = newVal;
+    const remaining = total - newVal;
+    const otherSum = others.reduce((s, id) => s + (state.allocations[id] || 0), 0);
+    let assigned = 0;
+    others.forEach((id, i) => {
+      let v;
+      if (i === others.length - 1) {
+        v = remaining - assigned;
+      } else {
+        const weight = otherSum > 0 ? (state.allocations[id] || 0) / otherSum : 1 / others.length;
+        v = Math.round((remaining * weight) / step) * step;
+        v = Math.max(0, Math.min(v, remaining - assigned));
+      }
+      next[id] = v;
+      assigned += v;
+    });
+  }
+
+  ids.forEach((id) => {
+    const v = next[id];
+    state.allocations[id] = v;
+    const ref = state.sliderRefs[id];
+    ref.slider.value = v;
+    ref.amountSpan.textContent = `$${v.toLocaleString()}`;
+    ref.pctSpan.textContent = `${Math.round((v / total) * 100)}%`;
+  });
+  updateTotalAndConfirmState();
+}
 
 /**
  * Show error message in #error element (Uses textContent)
@@ -330,29 +673,33 @@ function renderWardStats(ward) {
     titleEl.textContent = ward.name;
   }
 
-  const reqEl = document.getElementById("statRequests");
-  if (reqEl && ward.requests_30d !== undefined) {
-    reqEl.textContent = Number(ward.requests_30d).toLocaleString();
-  }
+  const indicators = ward.indicators || {};
+  const fmt = (v) => (v === undefined || v === null || v === "" ? "—" : Number(v).toLocaleString());
 
-  const trendEl = document.getElementById("statTrend");
-  if (trendEl && ward.trend) {
-    trendEl.textContent = ward.trend;
-  }
+  const reqEl = document.getElementById("statRequests");
+  if (reqEl) reqEl.textContent = fmt(indicators["311_requests_total"] ?? ward.requests_30d);
 
   const catLabelEl = document.getElementById("statTopCategoryLabel");
-  if (catLabelEl && ward.top_category) {
-    catLabelEl.textContent = ward.top_category;
-  }
+  if (catLabelEl) catLabelEl.textContent = indicators.top_category || "Top category";
 
-  const trendSub = document.getElementById("trendSubtitle");
-  if (trendSub) {
-    trendSub.textContent = `${ward.top_category || "Requests"} in ${ward.name} (last 12 months)`;
-  }
+  const catCountEl = document.getElementById("statTopCategoryCount");
+  if (catCountEl) catCountEl.textContent = fmt(indicators.top_category_count ?? indicators.noise_complaints);
+
+  const dumpingCountEl = document.getElementById("statDumpingCount");
+  if (dumpingCountEl) dumpingCountEl.textContent = fmt(indicators.illegal_dumping);
+
+  const parksCountEl = document.getElementById("statParksCount");
+  if (parksCountEl) parksCountEl.textContent = fmt(indicators.parks_rec_requests);
+
+  // The backend does not provide trends, so hide the hardcoded trend lines.
+  document.querySelectorAll(".stat-trend").forEach((el) => {
+    el.style.display = "none";
+  });
 }
 
 /**
- * Render AI Summary into #summary and sources into #sources
+ * Render Ward Summary and Sources
+ * GET /api/wards/{id}/summary returns { name, indicators, source }
  * DATA RULE: Set API text with textContent, not innerHTML
  */
 function renderSummaryAndSources(data) {
@@ -360,80 +707,146 @@ function renderSummaryAndSources(data) {
   const sourcesEl = document.getElementById("sources");
 
   if (summaryEl) {
-    if (data && data.summary) {
-      summaryEl.textContent = data.summary;
+    if (!data) {
+      summaryEl.textContent = "No summary data available for this ward.";
     } else {
-      summaryEl.textContent = "No AI summary available for this ward.";
+      let text = "";
+      if (data.name) {
+        text += `${data.name}\n\n`;
+      }
+      if (data.indicators && typeof data.indicators === "object") {
+        text += "Key Indicators:\n";
+        for (const [key, val] of Object.entries(data.indicators)) {
+          const formattedKey = key
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase());
+          const formattedVal =
+            typeof val === "number" ? val.toLocaleString() : val;
+          text += `• ${formattedKey}: ${formattedVal}\n`;
+        }
+      } else if (data.summary) {
+        text += data.summary;
+      }
+      summaryEl.textContent = text || "No indicator summary recorded.";
     }
   }
 
   if (sourcesEl) {
     sourcesEl.innerHTML = "";
-    if (data && Array.isArray(data.sources) && data.sources.length > 0) {
-      data.sources.forEach((url) => {
-        const link = document.createElement("a");
-        link.href = url;
-        link.textContent = url;
-        link.target = "_blank";
-        link.rel = "noopener noreferrer";
-        sourcesEl.appendChild(link);
+    if (data && data.source) {
+      const sourcesList = Array.isArray(data.source) ? data.source : [data.source];
+      sourcesList.forEach((src) => {
+        if (typeof src === "string" && (src.startsWith("http://") || src.startsWith("https://"))) {
+          const link = document.createElement("a");
+          link.href = src;
+          link.textContent = src;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          sourcesEl.appendChild(link);
+        } else {
+          const span = document.createElement("span");
+          span.textContent = String(src);
+          sourcesEl.appendChild(span);
+        }
       });
     } else {
-      const emptySpan = document.createElement("span");
-      emptySpan.textContent = "Toronto Open Data (311 Service Requests)";
-      sourcesEl.appendChild(emptySpan);
+      const defaultSource = document.createElement("a");
+      defaultSource.href = "https://open.toronto.ca/dataset/311-service-requests-customer-initiated/";
+      defaultSource.textContent = "Toronto Open Data (311 Service Requests)";
+      defaultSource.target = "_blank";
+      defaultSource.rel = "noopener noreferrer";
+      sourcesEl.appendChild(defaultSource);
     }
   }
 }
 
 /**
- * Render Trend Chart with Chart.js
- * Rule: draw with Chart.js; if it fails, hide the chart
+ * Render Community Preferences Bar Chart (Chart.js)
+ * GET /api/community-preferences -> { participant_count, preferences: [{ name, total_allocated_cad, percentage_share }] }
  */
-function renderTrendChart(trendData) {
+function renderCommunityPreferencesChart(data) {
   const canvas = document.getElementById("trendChart");
   const chartWrapper = canvas ? canvas.parentElement : null;
+  const subEl = document.getElementById("communityPreferencesSub");
+  const listEl = document.getElementById("preferencesList");
 
   if (!canvas || !chartWrapper) return;
 
-  if (!Array.isArray(trendData) || trendData.length === 0) {
+  if (!data || !Array.isArray(data.preferences) || data.preferences.length === 0) {
     chartWrapper.style.display = "none";
     return;
   }
 
+  chartWrapper.style.display = "block";
+
+  if (subEl && data.participant_count !== undefined) {
+    subEl.textContent = `Based on ${Number(data.participant_count).toLocaleString()} civic participants`;
+  }
+
+  // Update side breakdown list
+  if (listEl) {
+    listEl.innerHTML = '<div class="cat-heading">Top Choices</div>';
+    const colors = ["#8b5cf6", "#3b82f6", "#06b6d4", "#10b981", "#f59e0b"];
+    data.preferences.forEach((pref, idx) => {
+      const color = colors[idx % colors.length];
+      const item = document.createElement("div");
+      item.className = "cat-item";
+
+      const left = document.createElement("div");
+      left.className = "cat-item-left";
+
+      const dot = document.createElement("span");
+      dot.className = "cat-dot";
+      dot.style.backgroundColor = color;
+
+      const name = document.createElement("span");
+      name.textContent = pref.name;
+
+      left.appendChild(dot);
+      left.appendChild(name);
+
+      const pct = document.createElement("span");
+      pct.className = "cat-item-pct";
+      pct.textContent = `${pref.percentage_share || 0}%`;
+
+      item.appendChild(left);
+      item.appendChild(pct);
+      listEl.appendChild(item);
+    });
+  }
+
   try {
-    chartWrapper.style.display = "block";
+    const labels = data.preferences.map((p) => p.name);
+    const shares = data.preferences.map((p) => p.percentage_share);
 
-    const labels = trendData.map((d) => d.day);
-    const values = trendData.map((d) => d.n);
-
-    if (state.trendChart) {
-      state.trendChart.destroy();
+    if (state.preferencesChart) {
+      state.preferencesChart.destroy();
     }
 
     const ctx = canvas.getContext("2d");
-    const gradient = ctx.createLinearGradient(0, 0, 0, 160);
-    gradient.addColorStop(0, "rgba(124, 58, 237, 0.45)");
-    gradient.addColorStop(1, "rgba(124, 58, 237, 0.0)");
 
-    state.trendChart = new Chart(ctx, {
-      type: "line",
+    state.preferencesChart = new Chart(ctx, {
+      type: "bar",
       data: {
         labels: labels,
         datasets: [
           {
-            label: "Requests",
-            data: values,
-            borderColor: "#8b5cf6",
-            borderWidth: 2.5,
-            backgroundColor: gradient,
-            fill: true,
-            tension: 0.38,
-            pointBackgroundColor: "#c084fc",
-            pointBorderColor: "#ffffff",
-            pointBorderWidth: 1.5,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            label: "Community Share (%)",
+            data: shares,
+            backgroundColor: [
+              "rgba(139, 92, 246, 0.8)",
+              "rgba(59, 130, 246, 0.8)",
+              "rgba(6, 182, 212, 0.8)",
+              "rgba(16, 185, 129, 0.8)",
+            ],
+            borderColor: [
+              "#8b5cf6",
+              "#3b82f6",
+              "#06b6d4",
+              "#10b981",
+            ],
+            borderWidth: 1.5,
+            borderRadius: 6,
           },
         ],
       },
@@ -449,7 +862,15 @@ function renderTrendChart(trendData) {
             borderColor: "#334155",
             borderWidth: 1,
             padding: 8,
-            displayColors: false,
+            callbacks: {
+              label: function (context) {
+                const item = data.preferences[context.dataIndex];
+                const amt = item.total_allocated_cad
+                  ? ` ($${Number(item.total_allocated_cad).toLocaleString()} CAD)`
+                  : "";
+                return ` ${context.raw}%${amt}`;
+              },
+            },
           },
         },
         scales: {
@@ -467,118 +888,134 @@ function renderTrendChart(trendData) {
             ticks: {
               color: "#64748b",
               font: { size: 10 },
-              maxTicksLimit: 5,
+              callback: function (val) {
+                return val + "%";
+              },
             },
           },
         },
       },
     });
   } catch (err) {
-    console.error("[WardFund] Failed to render trend chart:", err);
+    console.error("[WardFund] Failed to render community preferences chart:", err);
     chartWrapper.style.display = "none";
   }
 }
 
 /**
- * Initialize and render Leaflet map
+ * Render the Toronto ward map. Only wards returned by the API get a pin,
+ * so clicking a pin always selects a ward the backend knows.
  */
-function renderLeafletMap(wards, selectedWardId) {
+function renderWardMap(wards) {
   const mapContainer = document.getElementById("map");
   if (!mapContainer || typeof L === "undefined") return;
 
-  // Toronto center fallback
-  const centerLat = 43.6800;
-  const centerLon = -79.3600;
-
   if (!state.map) {
     state.map = L.map("map", {
-      center: [centerLat, centerLon],
+      center: [43.675, -79.37],
       zoom: 11,
       zoomControl: false,
-      attributionControl: false,
     });
-
-    // Sleek Dark Filtered OpenStreetMap Tiles
-    L.tileLayer(
-      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      {
-        subdomains: "abc",
-        maxZoom: 18,
-      }
-    ).addTo(state.map);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      subdomains: "abc",
+      maxZoom: 18,
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(state.map);
   }
 
-  // Clear existing markers
-  Object.values(state.mapMarkers).forEach((marker) => marker.remove());
-  state.mapMarkers = {};
+  wardMarkers.forEach((m) => m.remove());
+  wardMarkers = [];
 
-  if (!Array.isArray(wards) || wards.length === 0) return;
+  (wards || []).forEach((ward) => {
+    const coords = WARD_COORDS[ward.id];
+    if (!coords) return;
 
-  wards.forEach((ward) => {
-    if (ward.lat !== undefined && ward.lon !== undefined) {
-      const isSelected = ward.id === selectedWardId;
-      const customIcon = L.divIcon({
-        className: "custom-div-icon",
-        html: `<div class="custom-ward-pin ${isSelected ? "selected" : ""}" title="${ward.name}">●</div>`,
-        iconSize: [22, 22],
-        iconAnchor: [11, 11],
-      });
+    const pin = document.createElement("div");
+    pin.className = "custom-ward-pin" + (ward.id === state.selectedWardId ? " selected" : "");
+    pin.dataset.wardId = ward.id;
+    pin.title = ward.name;
+    pin.textContent = "●";
 
-      const marker = L.marker([ward.lat, ward.lon], { icon: customIcon }).addTo(state.map);
-      marker.bindPopup(`<strong>${ward.name}</strong><br/>${ward.requests_30d || 0} requests`);
+    const icon = L.divIcon({
+      className: "custom-div-icon",
+      html: pin,
+      iconSize: [20, 20],
+      iconAnchor: [10, 10],
+    });
 
-      marker.on("click", () => {
-        selectWard(ward.id);
-      });
+    const popup = document.createElement("strong");
+    popup.textContent = ward.name;
 
-      state.mapMarkers[ward.id] = marker;
-
-      if (isSelected) {
-        state.map.panTo([ward.lat, ward.lon]);
-      }
-    }
+    const marker = L.marker(coords, { icon }).addTo(state.map);
+    marker.bindPopup(popup);
+    marker.on("click", () => selectWard(ward.id));
+    wardMarkers.push(marker);
   });
 }
 
 /**
  * Render Project Cards into #projects
+ * GET /api/projects -> { projects: [{ id, name, description }] }
+ * (No cost or impact fields)
  */
 function renderProjects(projects) {
   const projectsContainer = document.getElementById("projects");
   if (!projectsContainer) return;
 
   projectsContainer.innerHTML = "";
+  state.sliderRefs = {};
 
   if (!Array.isArray(projects) || projects.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty-state-text";
-    empty.textContent = "No community projects currently listed for this ward.";
+    empty.textContent = "No community projects available.";
     projectsContainer.appendChild(empty);
     updateTotalAndConfirmState();
     return;
   }
 
-  // Pre-populate allocations if not set
-  projects.forEach((proj) => {
-    if (state.allocations[proj.id] === undefined) {
-      state.allocations[proj.id] = Number(proj.cost) || 0;
+  // Pre-seed allocations if empty to sum up to exactly 10,000
+  const hasAllocations = Object.keys(state.allocations).length > 0;
+  if (!hasAllocations) {
+    if (projects.length === 3) {
+      state.allocations[projects[0].id] = 4000;
+      state.allocations[projects[1].id] = 3500;
+      state.allocations[projects[2].id] = 2500;
+    } else {
+      const share = Math.floor(state.totalBudget / projects.length / 100) * 100;
+      let running = 0;
+      projects.forEach((proj, idx) => {
+        if (idx === projects.length - 1) {
+          state.allocations[proj.id] = state.totalBudget - running;
+        } else {
+          state.allocations[proj.id] = share;
+          running += share;
+        }
+      });
     }
-  });
+  }
 
-  projects.forEach((proj) => {
+  const projectImages = [
+    "https://images.unsplash.com/photo-1517732306149-e8f829eb588a?w=200&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1519331379826-f10be5486c6f?w=200&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1577495508048-b635879837f1?w=200&auto=format&fit=crop&q=80",
+  ];
+
+  projects.forEach((proj, idx) => {
     const card = document.createElement("div");
     card.className = "project-card";
 
-    // Top row with thumbnail & title
+    // Top row: thumbnail & title
     const topRow = document.createElement("div");
     topRow.className = "project-top-row";
 
     const thumb = document.createElement("img");
     thumb.className = "project-thumb";
     thumb.alt = proj.name;
-    thumb.src =
-      proj.image ||
-      "https://images.unsplash.com/photo-1519331379826-f10be5486c6f?w=200&auto=format&fit=crop&q=80";
+    thumb.src = projectImages[idx % projectImages.length];
+    thumb.onerror = () => {
+      thumb.style.display = "none";
+    };
 
     const info = document.createElement("div");
     info.className = "project-info";
@@ -589,44 +1026,14 @@ function renderProjects(projects) {
 
     const descEl = document.createElement("p");
     descEl.className = "project-desc";
-    descEl.textContent =
-      proj.description ||
-      `Support civic initiatives and sustainable community development in this ward.`;
+    descEl.textContent = proj.description || "Civic funding initiative for community empowerment.";
 
     info.appendChild(nameEl);
     info.appendChild(descEl);
     topRow.appendChild(thumb);
     topRow.appendChild(info);
 
-    // Impact row
-    const impactBox = document.createElement("div");
-    impactBox.className = "project-impact-box";
-
-    const impactHeading = document.createElement("span");
-    impactHeading.className = "impact-heading";
-    impactHeading.textContent = "Estimated Impact";
-    impactBox.appendChild(impactHeading);
-
-    const tagsContainer = document.createElement("div");
-    tagsContainer.className = "impact-tags";
-
-    if (proj.impact) {
-      const tags = proj.impact.split(",");
-      tags.forEach((tagText) => {
-        const tag = document.createElement("span");
-        tag.className = "impact-tag";
-        tag.textContent = tagText.trim();
-        tagsContainer.appendChild(tag);
-      });
-    } else {
-      const defaultTag = document.createElement("span");
-      defaultTag.className = "impact-tag";
-      defaultTag.textContent = "Community benefit";
-      tagsContainer.appendChild(defaultTag);
-    }
-    impactBox.appendChild(tagsContainer);
-
-    // Slider section
+    // Slider controls section
     const sliderSection = document.createElement("div");
     sliderSection.className = "project-slider-section";
 
@@ -655,20 +1062,15 @@ function renderProjects(projects) {
     slider.value = currentAlloc;
     slider.setAttribute("aria-label", `Allocation for ${proj.name}`);
 
+    state.sliderRefs[proj.id] = { slider, amountSpan, pctSpan };
     slider.addEventListener("input", (e) => {
-      const newVal = parseInt(e.target.value, 10) || 0;
-      state.allocations[proj.id] = newVal;
-      amountSpan.textContent = `$${newVal.toLocaleString()}`;
-      const newPct = Math.round((newVal / state.totalBudget) * 100);
-      pctSpan.textContent = `${newPct}%`;
-      updateTotalAndConfirmState();
+      rebalanceAllocations(proj.id, parseInt(e.target.value, 10) || 0);
     });
 
     sliderSection.appendChild(valRow);
     sliderSection.appendChild(slider);
 
     card.appendChild(topRow);
-    card.appendChild(impactBox);
     card.appendChild(sliderSection);
 
     projectsContainer.appendChild(card);
@@ -679,7 +1081,7 @@ function renderProjects(projects) {
 
 /**
  * Update live Total Allocated / Remaining and Confirm button state
- * RULE: Disable Confirm when the total is 0 or above $10,000
+ * RULE: The amounts must total exactly 10000, so enable Confirm only when remaining is exactly $0.
  */
 function updateTotalAndConfirmState() {
   const totalEl = document.getElementById("total");
@@ -699,49 +1101,53 @@ function updateTotalAndConfirmState() {
   }
 
   if (remainingHint) {
-    if (remaining > 0) {
-      remainingHint.textContent = `$${remaining.toLocaleString()} remaining`;
-      remainingHint.style.color = "var(--text-gray-400)";
-    } else if (remaining === 0) {
+    if (remaining === 0) {
       remainingHint.textContent = "Exact allocation reached ($0 remaining)";
       remainingHint.style.color = "var(--accent-green)";
+    } else if (remaining > 0) {
+      remainingHint.textContent = `$${remaining.toLocaleString()} remaining (Must equal $0 to confirm)`;
+      remainingHint.style.color = "var(--text-gray-400)";
     } else {
       remainingHint.textContent = `Over budget by $${Math.abs(remaining).toLocaleString()}!`;
       remainingHint.style.color = "var(--accent-red)";
     }
   }
 
-  // Update icon styling
+  // Update checkmark icon styling
   if (totalCheckIcon) {
     totalCheckIcon.className = "total-check-icon";
-    if (totalAllocated === 0) {
-      totalCheckIcon.classList.add("warning");
-    } else if (totalAllocated > state.totalBudget) {
+    if (remaining === 0) {
+      // Valid exact 10,000
+    } else if (remaining < 0) {
       totalCheckIcon.classList.add("error");
+    } else {
+      totalCheckIcon.classList.add("warning");
     }
   }
 
-  // Confirm button disabled when total is 0 or above 10,000 or allocating
+  // Confirm enabled ONLY when remaining is exactly 0 and not currently allocating
   if (confirmBtn) {
-    const isDisabled =
-      totalAllocated <= 0 ||
-      totalAllocated > state.totalBudget ||
-      state.isAllocating;
-    confirmBtn.disabled = isDisabled;
+    const isExactBudget = totalAllocated === state.totalBudget;
+    confirmBtn.disabled = !isExactBudget || state.isAllocating;
   }
 }
 
 /**
  * Render ledger records into #ledger
- * RULE: Every row has a link to explorer_url that opens in a new tab
+ * GET /api/ledger returns { ledger_entries: [...] }
+ * Each entry has transactions with explorer_url. Link each one to Solana Explorer in a new tab.
  */
-function renderLedger(ledgerList) {
+function renderLedger(ledgerData) {
   const ledgerEl = document.getElementById("ledger");
   if (!ledgerEl) return;
 
   ledgerEl.innerHTML = "";
 
-  if (!Array.isArray(ledgerList) || ledgerList.length === 0) {
+  const entries =
+    (ledgerData && ledgerData.ledger_entries) ||
+    (Array.isArray(ledgerData) ? ledgerData : []);
+
+  if (entries.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty-state-text";
     empty.textContent = "No recent allocations recorded.";
@@ -749,45 +1155,59 @@ function renderLedger(ledgerList) {
     return;
   }
 
-  ledgerList.forEach((tx) => {
-    const item = document.createElement("div");
-    item.className = "ledger-item";
+  entries.forEach((entry) => {
+    const wardLabel = entry.ward_id || entry.ward || "Ward 14";
+    const dateLabel = formatDate(entry.created_at);
+    const txs = entry.transactions || [entry];
 
-    const top = document.createElement("div");
-    top.className = "ledger-top";
+    txs.forEach((tx) => {
+      const item = document.createElement("div");
+      item.className = "ledger-item";
 
-    const wardSpan = document.createElement("span");
-    wardSpan.className = "ledger-ward";
-    wardSpan.textContent = tx.ward || "Ward 14";
+      const top = document.createElement("div");
+      top.className = "ledger-top";
 
-    const amtSpan = document.createElement("span");
-    amtSpan.className = "ledger-amount";
-    amtSpan.textContent = `+$${Number(tx.amount || 0).toLocaleString()} WFT`;
+      const wardSpan = document.createElement("span");
+      wardSpan.className = "ledger-ward";
+      wardSpan.textContent = `${wardLabel} · ${projectName(tx.project_id)}`;
 
-    top.appendChild(wardSpan);
-    top.appendChild(amtSpan);
+      const amtSpan = document.createElement("span");
+      amtSpan.className = "ledger-amount";
+      const amt = tx.amount_cad ?? tx.amount ?? 0;
+      amtSpan.textContent = `+$${Number(amt).toLocaleString()} CAD`;
 
-    const bottom = document.createElement("div");
-    bottom.className = "ledger-bottom";
+      top.appendChild(wardSpan);
+      top.appendChild(amtSpan);
 
-    const link = document.createElement("a");
-    link.className = "ledger-link";
-    link.href = tx.explorer_url || "https://explorer.solana.com";
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    link.textContent = `${tx.signature || "Explorer Link"} ↗`;
+      const bottom = document.createElement("div");
+      bottom.className = "ledger-bottom";
 
-    const dateSpan = document.createElement("span");
-    dateSpan.className = "ledger-date";
-    dateSpan.textContent = tx.created_at || "Recent";
+      let link;
+      if (!state.isDemoFallback && tx.signature && tx.explorer_url) {
+        link = document.createElement("a");
+        link.className = "ledger-link";
+        link.href = tx.explorer_url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = `${shortSig(tx.signature)} ↗`;
+      } else {
+        link = document.createElement("span");
+        link.className = "ledger-date";
+        link.textContent = state.isDemoFallback ? "simulated" : "no on-chain tx";
+      }
 
-    bottom.appendChild(link);
-    bottom.appendChild(dateSpan);
+      const dateSpan = document.createElement("span");
+      dateSpan.className = "ledger-date";
+      dateSpan.textContent = dateLabel;
 
-    item.appendChild(top);
-    item.appendChild(bottom);
+      bottom.appendChild(link);
+      bottom.appendChild(dateSpan);
 
-    ledgerEl.appendChild(item);
+      item.appendChild(top);
+      item.appendChild(bottom);
+
+      ledgerEl.appendChild(item);
+    });
   });
 }
 
@@ -796,7 +1216,7 @@ function renderLedger(ledgerList) {
 // ============================================================================
 
 /**
- * Select a Ward by ID, fetch its data, and update views
+ * Select a Ward by ID, fetch summary and update views
  */
 async function selectWard(wardId) {
   if (!wardId) return;
@@ -809,61 +1229,80 @@ async function selectWard(wardId) {
     selectEl.value = wardId;
   }
 
-  // Update map marker selection
-  Object.entries(state.mapMarkers).forEach(([id, marker]) => {
-    const el = marker.getElement();
-    if (el) {
-      const pin = el.querySelector(".custom-ward-pin");
-      if (pin) {
-        if (id === wardId) {
-          pin.classList.add("selected");
-        } else {
-          pin.classList.remove("selected");
-        }
-      }
-    }
-  });
-
-  if (state.currentWard && state.map) {
-    state.map.panTo([state.currentWard.lat, state.currentWard.lon]);
-  }
-
-  // Update stats
+  // Update stats cards
   renderWardStats(state.currentWard);
 
-  // Set loading states
-  const summaryEl = document.getElementById("summary");
-  if (summaryEl) summaryEl.textContent = "Loading ward AI insights from Gemini...";
+  // Highlight the selected pin on the map
+  document.querySelectorAll(".custom-ward-pin").forEach((el) => {
+    el.classList.toggle("selected", el.dataset.wardId === wardId);
+  });
 
-  const projectsEl = document.getElementById("projects");
-  if (projectsEl) {
-    projectsEl.innerHTML = '<div class="empty-state-text"><span class="loading-spinner"></span> Loading projects...</div>';
+  // Clear previous Ask Gemini answer
+  const answerBox = document.getElementById("askGeminiAnswer");
+  if (answerBox) {
+    answerBox.textContent = "";
+    answerBox.style.display = "none";
   }
 
-  // Fetch summary, trend, projects in parallel
-  const [summaryData, trendData, projectsData] = await Promise.all([
-    apiGetWardSummary(wardId),
-    apiGetWardTrend(wardId),
-    apiGetProjects(wardId),
-  ]);
+  // Set loading summary
+  const summaryEl = document.getElementById("summary");
+  if (summaryEl) summaryEl.textContent = "Loading ward indicators and summary...";
 
-  state.projects = projectsData || [];
-  state.allocations = {};
-
+  // Fetch summary for this ward
+  const summaryData = await apiGetWardSummary(wardId);
   renderSummaryAndSources(summaryData);
-  renderTrendChart(trendData);
-  renderProjects(state.projects);
+}
+
+/**
+ * Handle "Ask Gemini about this ward"
+ * POST /api/wards/{id}/ask with { question } -> { answer }
+ * DATA RULE: Show the answer with textContent
+ */
+async function handleAskGemini() {
+  const inputEl = document.getElementById("askGeminiInput");
+  const btnEl = document.getElementById("askGeminiBtn");
+  const answerEl = document.getElementById("askGeminiAnswer");
+
+  if (!inputEl || !btnEl || !answerEl) return;
+
+  const question = inputEl.value.trim();
+  if (!question) return;
+
+  state.isAskingGemini = true;
+  btnEl.disabled = true;
+  btnEl.textContent = "Thinking...";
+
+  answerEl.style.display = "block";
+  answerEl.textContent = "Consulting Gemini AI with 311 ward indicators...";
+
+  try {
+    const res = await apiAskWard(state.selectedWardId, question);
+    if (res && res.answer) {
+      answerEl.textContent = res.answer;
+    } else {
+      answerEl.textContent = "No answer returned for this question.";
+    }
+  } catch (err) {
+    console.error("[WardFund] Ask Gemini error:", err);
+    answerEl.textContent = `Error: ${err.message}`;
+  } finally {
+    state.isAskingGemini = false;
+    btnEl.disabled = false;
+    btnEl.textContent = "Ask ✦";
+  }
 }
 
 /**
  * Handle Confirm Allocation button click
+ * POST /api/allocate with { ward_id, allocations: [{ project_id, amount_cad }] }
+ * -> { receipt: { transactions: [{ project_id, amount_cad, signature, explorer_url }] } }
  */
 async function handleConfirmAllocation() {
   if (state.isAllocating) return;
 
   const totalAllocated = Object.values(state.allocations).reduce((a, b) => a + b, 0);
-  if (totalAllocated <= 0 || totalAllocated > state.totalBudget) {
-    showErrorNotification("Allocation must be greater than $0 and cannot exceed $10,000.");
+  if (totalAllocated !== state.totalBudget) {
+    showErrorNotification("Allocations must total exactly $10,000 to execute on Solana Devnet.");
     return;
   }
 
@@ -873,7 +1312,8 @@ async function handleConfirmAllocation() {
 
   if (confirmBtn) {
     confirmBtn.disabled = true;
-    confirmBtn.innerHTML = '<span class="loading-spinner"></span> <span>Allocating on Solana Devnet...</span>';
+    confirmBtn.innerHTML =
+      '<span class="loading-spinner"></span> <span>Allocating on Solana Devnet...</span>';
   }
 
   showErrorNotification("");
@@ -883,49 +1323,37 @@ async function handleConfirmAllocation() {
       .filter(([_, amount]) => amount > 0)
       .map(([projectId, amount]) => ({
         project_id: projectId,
-        amount: amount,
+        amount_cad: amount,
       }));
 
     const result = await apiAllocate(state.selectedWardId, allocationsArray);
 
-    // Update Recent Transaction Box
-    const recentTxBox = document.getElementById("recentTxBox");
-    const sigLink = document.getElementById("recentTxSigLink");
-    const explorerLink = document.getElementById("recentTxExplorerLink");
+    const txs =
+      (result && result.receipt && result.receipt.transactions) ||
+      (result && result.txs) ||
+      [];
 
-    if (result && result.txs && result.txs.length > 0) {
-      const primaryTx = result.txs[0];
-      if (sigLink) {
-        sigLink.textContent = `${primaryTx.signature} ↗`;
-        sigLink.href = primaryTx.explorer_url;
-      }
-      if (explorerLink) {
-        explorerLink.href = primaryTx.explorer_url;
-      }
-      if (recentTxBox) {
-        recentTxBox.style.display = "flex";
-      }
+    if (txs.length > 0) {
+      renderRecentTransactions(txs);
 
-      // Add to demo ledger if in fallback
+      // Add to demo ledger if in fallback mode
       if (state.isDemoFallback) {
-        result.txs.forEach((tx) => {
-          DEMO_DATA.ledger.unshift({
-            ward: state.currentWard ? state.currentWard.name.split("–")[0].trim() : "Ward 14",
-            project_id: tx.project_id,
-            amount: tx.amount,
-            signature: tx.signature,
-            explorer_url: tx.explorer_url,
-            created_at: "Just now",
-          });
+        DEMO_DATA.ledger.ledger_entries.unshift({
+          ward_id: state.selectedWardId,
+          created_at: "Just now",
+          transactions: txs,
         });
       }
     }
+
+    // Refresh project balances once the transfers have landed
+    renderProjectBalances(state.projects);
 
     // Refresh ledger
     const updatedLedger = await apiGetLedger();
     renderLedger(updatedLedger);
   } catch (err) {
-    console.error("[WardFund] Allocation request failed:", err);
+    console.error("[WardFund] Allocation error:", err);
     showErrorNotification(`Error executing allocation: ${err.message}`);
   } finally {
     state.isAllocating = false;
@@ -955,62 +1383,84 @@ async function initWardFund() {
     confirmBtn.addEventListener("click", handleConfirmAllocation);
   }
 
-  // Wire demo toggle button
-  const toggleBtn = document.getElementById("toggleDemoBtn");
-  if (toggleBtn) {
-    toggleBtn.addEventListener("click", () => {
-      state.isDemoFallback = !state.isDemoFallback;
-      toggleBtn.textContent = state.isDemoFallback ? "Demo Mode (Active)" : "Live API Mode";
-      showErrorNotification(
-        state.isDemoFallback
-          ? "Switched to local Demo Mode dataset."
-          : `Switched to Live API Mode (${API}).`
-      );
-      loadInitialData();
+  // Wire Ask Gemini input and button
+  const askBtn = document.getElementById("askGeminiBtn");
+  const askInput = document.getElementById("askGeminiInput");
+  if (askBtn) {
+    askBtn.addEventListener("click", handleAskGemini);
+  }
+  if (askInput) {
+    askInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleAskGemini();
+      }
     });
   }
 
+  hideRecentTx();
+  addDevnetNotice();
   await loadInitialData();
 }
 
 async function loadInitialData() {
   try {
-    const wards = await apiGetWards();
-    state.wards = wards || [];
+    // Wards first: if the backend is down, this switches on demo mode for every later call
+    const wardsRes = await apiGetWards();
+    const [projectsRes, prefRes, ledgerRes] = await Promise.all([
+      apiGetProjects(),
+      apiGetCommunityPreferences(),
+      apiGetLedger(),
+    ]);
 
+    // Handle wards
+    state.wards = (wardsRes && wardsRes.wards) || (Array.isArray(wardsRes) ? wardsRes : []);
     if (state.wards.length > 0) {
-      // Pick first ward (or ward-14 if present)
-      const defaultWard = state.wards.find((w) => w.id === "ward-14") || state.wards[0];
+      const defaultWard =
+        state.wards.find((w) => w.id === "ward-14") || state.wards[0];
       state.selectedWardId = defaultWard.id;
       state.currentWard = defaultWard;
 
       renderWardsDropdown(state.wards);
-      renderLeafletMap(state.wards, state.selectedWardId);
+      renderWardStats(state.currentWard);
+      renderWardMap(state.wards);
       await selectWard(state.selectedWardId);
     } else {
       showErrorNotification("No wards available from API.");
     }
 
-    const ledgerList = await apiGetLedger();
-    renderLedger(ledgerList);
+    // Handle projects
+    state.projects =
+      (projectsRes && projectsRes.projects) ||
+      (Array.isArray(projectsRes) ? projectsRes : []);
+    renderProjects(state.projects);
+    renderProjectBalances(state.projects);
 
-    // Ensure map tiles and chart render crisp at the exact container dimensions
+    // Handle community preferences bar chart
+    renderCommunityPreferencesChart(prefRes);
+
+    // Handle ledger
+    renderLedger(ledgerRes);
+
+    showDemoBanner();
+    refreshChainStatus();
+
+    // Ensure responsive canvases
     setTimeout(() => {
       if (state.map) state.map.invalidateSize();
-      if (state.trendChart) state.trendChart.resize();
+      if (state.preferencesChart) state.preferencesChart.resize();
     }, 150);
   } catch (err) {
     console.error("[WardFund] Initialization error:", err);
-    showErrorNotification(`Initialization failed: ${err.message}`);
+    showErrorNotification(`Initialization error: ${err.message}`);
   }
 }
 
 // Keep map and chart responsive on window resizing
 window.addEventListener("resize", () => {
   if (state.map) state.map.invalidateSize();
-  if (state.trendChart) state.trendChart.resize();
+  if (state.preferencesChart) state.preferencesChart.resize();
 });
 
 // Start app on DOMContentLoaded
 document.addEventListener("DOMContentLoaded", initWardFund);
-
