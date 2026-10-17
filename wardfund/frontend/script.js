@@ -1,4 +1,4 @@
-const API = "http://localhost:8000";
+const API = "http://127.0.0.1:8000";
 
 /**
  * WardFund Civic Funding Demo
@@ -293,9 +293,11 @@ async function apiAllocate(wardId, allocationsArray) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      ward_id: wardId,
-      allocations: allocationsArray,
-    }),
+    ward_id: wardId,
+    allocations: allocationsArray,
+    currency: "CAD",
+    simulation: true,
+  }),
   });
 
   if (!res.ok) {
@@ -363,7 +365,8 @@ async function readApiError(res, prefix) {
   try {
     const body = await res.json();
     const d = body && body.detail;
-    if (typeof d === "string") message = d;
+    if (body && body.error && body.error.message) message = body.error.message;
+    else if (typeof d === "string") message = d;
     else if (d && d.error && d.error.message) message = d.error.message;
     else if (Array.isArray(d) && d[0] && d[0].msg) message = d[0].msg;
   } catch (_) {
@@ -682,14 +685,38 @@ function renderWardStats(ward) {
   const catLabelEl = document.getElementById("statTopCategoryLabel");
   if (catLabelEl) catLabelEl.textContent = indicators.top_category || "Top category";
 
-  const catCountEl = document.getElementById("statTopCategoryCount");
-  if (catCountEl) catCountEl.textContent = fmt(indicators.top_category_count ?? indicators.noise_complaints);
+const categories = Array.isArray(indicators.categories)
+  ? indicators.categories
+  : [];
+
+const topCategory = categories.find(
+  (category) => category.name === indicators.top_category
+);
+
+const catCountEl = document.getElementById("statTopCategoryCount");
+
+if (catCountEl) {
+  catCountEl.textContent = fmt(
+    indicators.top_category_count ?? topCategory?.count
+  );
+}
 
   const dumpingCountEl = document.getElementById("statDumpingCount");
   if (dumpingCountEl) dumpingCountEl.textContent = fmt(indicators.illegal_dumping);
 
   const parksCountEl = document.getElementById("statParksCount");
   if (parksCountEl) parksCountEl.textContent = fmt(indicators.parks_rec_requests);
+
+  const cats = Array.isArray(indicators.categories) ? indicators.categories : [];
+  const cards = document.querySelectorAll(".stat-card");
+  cats.slice(0, 3).forEach((c, i) => {
+    const card = cards[i + 1];
+    if (!card) return;
+    const v = card.querySelector(".stat-value");
+    const l = card.querySelector(".stat-label");
+    if (v) v.textContent = Number(c.count).toLocaleString();
+    if (l) l.textContent = c.name;
+  });
 
   // The backend does not provide trends, so hide the hardcoded trend lines.
   document.querySelectorAll(".stat-trend").forEach((el) => {
@@ -717,6 +744,7 @@ function renderSummaryAndSources(data) {
       if (data.indicators && typeof data.indicators === "object") {
         text += "Key Indicators:\n";
         for (const [key, val] of Object.entries(data.indicators)) {
+          if (Array.isArray(val)) continue;
           const formattedKey = key
             .replace(/_/g, " ")
             .replace(/\b\w/g, (c) => c.toUpperCase());
@@ -727,6 +755,15 @@ function renderSummaryAndSources(data) {
       } else if (data.summary) {
         text += data.summary;
       }
+      const cats = data && data.indicators && Array.isArray(data.indicators.categories) ? data.indicators.categories : [];
+      if (cats.length) {
+        text += "\nTop categories:\n";
+        cats.forEach((c) => {
+          text += `• ${c.name}: ${Number(c.count).toLocaleString()} (${c.percentage}%)\n`;
+        });
+      }
+      if (data && data.limitation_note) text += `\nNote: ${data.limitation_note}\n`;
+      if (data && data.data_range) text += `Data range: ${data.data_range}\n`;
       summaryEl.textContent = text || "No indicator summary recorded.";
     }
   }
