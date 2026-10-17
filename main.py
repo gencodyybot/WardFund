@@ -1,4 +1,8 @@
+import json
 import os
+import subprocess
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import List, Optional
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -8,7 +12,31 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+<<<<<<< HEAD
+# --- Tiger Data / PostgreSQL Imports ---
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+# Look for .env in both backend/ and the parent wardfund/ folder:
 load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+=======
+ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(ROOT.parent / ".env")
+>>>>>>> 90dba13b610f13702dcbe7ac0d812b1ba2f4835c
+
+# Run once to list valid names: for m in genai.Client().models.list(): print(m.name)
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+# SKIP_CHAIN=true skips Solana so the page can be tested before wallets exist.
+SKIP_CHAIN = os.getenv("SKIP_CHAIN", "false").lower() == "true"
+DEMO_SOL_PER_DOLLAR = 0.00001
+
+# project_id -> devnet public key, written by chain/gen-wallets.js
+try:
+    WALLETS = json.loads((ROOT / "chain" / "wallets.json").read_text())
+except FileNotFoundError:
+    WALLETS = {}
 
 app = FastAPI(
     title="WardFund API",
@@ -24,8 +52,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+<<<<<<< HEAD
+# Configuration from environment variables
+=======
 # Initialize Google Gen AI client with modern SDK
+>>>>>>> 90dba13b610f13702dcbe7ac0d812b1ba2f4835c
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Initialize Google Gen AI with GEMINI_API_KEY
 gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 # --- Pydantic Models ---
@@ -83,6 +118,40 @@ WARDS = [
     }
 ]
 
+class ChainError(Exception):
+    pass
+
+
+
+def send_on_chain(wallet: str, sol: float) -> dict:
+    """Runs send.js and returns the confirmed transaction details."""
+    result = subprocess.run(
+        [
+            "node",
+            str(ROOT / "chain" / "send.js"),
+            wallet,
+            str(sol),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=ROOT / "chain",
+        timeout=90,
+    )
+
+    if result.returncode != 0:
+        raise ChainError(
+            result.stderr.strip()[-300:] or "send.js failed"
+        )
+
+    try:
+        return json.loads(result.stdout.strip())
+    except json.JSONDecodeError:
+        raise ChainError(
+            f"send.js returned invalid JSON. "
+            f"stdout={result.stdout[-500:]!r}; "
+            f"stderr={result.stderr[-500:]!r}"
+        )
+
 def make_error(code: str, message: str, status_code: int = 400):
     return JSONResponse(
         status_code=status_code,
@@ -95,8 +164,15 @@ def make_error(code: str, message: str, status_code: int = 400):
 def health_check():
     return {
         "status": "ok",
+<<<<<<< HEAD
+        "chain": "devnet",
+        "gemini_active": bool(gemini_client),
+        "tiger_data_active": bool(DATABASE_URL)
+=======
         "service": "wardfund-backend",
-        "gemini_active": bool(gemini_client)
+        "gemini_active": bool(gemini_client),
+        "chain": "skipped" if SKIP_CHAIN else "devnet"
+>>>>>>> 90dba13b610f13702dcbe7ac0d812b1ba2f4835c
     }
 
 @app.get("/api/wards")
@@ -117,6 +193,41 @@ def get_ward_summary(ward_id: str):
         "limitation_note": ward["limitation_note"]
     }
 
+<<<<<<< HEAD
+# 3. GET /api/wards/{ward_id}/trend (⚡ Powered by Tiger Data TimescaleDB time_bucket)
+@app.get("/api/wards/{ward_id}/trend")
+def get_ward_trend_tigerdata(ward_id: str):
+    # If Tiger Data is configured, run the real TimescaleDB time-series query
+    if DATABASE_URL:
+        try:
+            conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+            cur = conn.cursor()
+
+            query = """
+            SELECT 
+                to_char(time_bucket('1 month', requested_at), 'Mon') AS day,
+                COUNT(*) AS n
+            FROM service_requests_311
+            WHERE ward_id = %s
+            GROUP BY 1, time_bucket('1 month', requested_at)
+            ORDER BY time_bucket('1 month', requested_at) ASC;
+            """
+            cur.execute(query, (ward_id,))
+            rows = cur.fetchall()
+            cur.close()
+            conn.close()
+            if rows:
+                return rows
+        except Exception as e:
+            print("Tiger Data query error (using fallback):", e)
+
+    # Fallback trend if DB not yet connected or empty
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    return [{"day": m, "n": 40 + i * 12} for i, m in enumerate(months)]
+
+# 4. POST /api/wards/{ward_id}/ask (Conversational Gemini AI)
+=======
+>>>>>>> 90dba13b610f13702dcbe7ac0d812b1ba2f4835c
 @app.post("/api/wards/{ward_id}/ask")
 def ask_gemini(ward_id: str, payload: AskRequest):
     ward = next((w for w in WARDS if w["id"] == ward_id), None)
@@ -160,25 +271,85 @@ Provide a grounded explanation distinguishing evidence from suggestions:
 
     try:
         response = gemini_client.models.generate_content(
-            model="gemini-3.8-flash",
+            model=GEMINI_MODEL,
             contents=prompt,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
                 temperature=0.25,
             )
         )
+<<<<<<< HEAD
+        return {"answer": response.text.strip()}
+    except Exception as e:
+        return {"answer": f"Error: {str(e)}"}
+
+# 5. GET /api/projects
+@app.get("/api/projects")
+def get_projects():
+    return {"projects": PROJECTS}
+
+# 6. POST /api/allocate
+@app.post("/api/allocate")
+async def allocate(request: Request):
+    payload = await request.json()
+    ward_id = payload.get("ward_id") or payload.get("ward") or "ward-14"
+    allocations = payload.get("allocations", [])
+
+    random_sig = "5KG2" + "".join(random.choices("ABCDEFGHJKLMNPQRSTUVWXYZ23456789", k=6)) + "...8Fse"
+    explorer_url = f"https://explorer.solana.com/tx/{random_sig}?cluster=devnet"
+
+    txs = []
+    for a in allocations:
+        amt = a.get("amount_cad") or a.get("amount") or 0
+        pid = a.get("project_id", "project")
+        txs.append({
+            "project_id": pid,
+            "amount_cad": amt,
+            "signature": random_sig,
+            "explorer_url": explorer_url
+        })
+
+    # Save to in-memory ledger
+    LEDGER_ENTRIES.insert(0, {
+        "ward_id": ward_id,
+        "created_at": "Just now",
+        "transactions": txs
+    })
+
+    return {
+        "receipt": {
+            "transactions": txs
+=======
         return {
             "answer": response.text,
             "source": "Toronto Open Data - 311 Service Requests",
             "ward_id": ward_id
+>>>>>>> 90dba13b610f13702dcbe7ac0d812b1ba2f4835c
         }
     except Exception as e:
         return make_error("GEMINI_ERROR", str(e), 500)
 
+<<<<<<< HEAD
+# 7. GET /api/community-preferences
+@app.get("/api/community-preferences")
+def get_community_preferences():
+=======
 @app.get("/api/projects")
 def list_projects():
-    return {"projects": PROJECTS}
+>>>>>>> 90dba13b610f13702dcbe7ac0d812b1ba2f4835c
+    return {
+        "projects": [
+            {
+                **p,
+                "wallet": WALLETS.get(p["id"], {}).get("publicKey", "")
+            }
+            for p in PROJECTS
+        ]
+    }
 
+<<<<<<< HEAD
+# 8. GET /api/ledger
+=======
 @app.post("/api/allocate")
 def submit_allocation(payload: AllocationRequest):
     # 1. Validate Ward ID
@@ -202,21 +373,55 @@ def submit_allocation(payload: AllocationRequest):
     if total_amount != 10000:
         return make_error("INVALID_ALLOCATION", f"Allocation amounts must total 10000. Received: {total_amount}")
 
-    # 4. Record allocation with distinct blockchain transaction status
+    # 4. Send one Solana devnet transfer per funded project
+    transactions = []
+    for item in payload.allocations:
+        if item.amount_cad == 0:
+            continue
+        
+        if SKIP_CHAIN or payload.simulation:
+            chain = {
+                "signature": None,
+                "explorer_url": None
+            }
+        else:
+            wallet = WALLETS.get(item.project_id)
+            if not wallet:
+                return make_error(
+                    "NO_WALLET",
+                    f"No wallet for '{item.project_id}'. Run gen-wallets with these project ids."
+                )
+            try:
+                chain = send_on_chain(
+                    item.project_id,
+                    round(item.amount_cad * DEMO_SOL_PER_DOLLAR, 6)
+                )
+            except Exception as e:
+                return make_error("CHAIN_ERROR", f"Solana transfer failed: {e}", 502)
+
+        transactions.append({"project_id": item.project_id, "amount_cad": item.amount_cad, **chain})
+
+    first = transactions[0] if transactions else {}
     record = {
         "id": f"alloc-{len(ALLOCATIONS_DB) + 1:04d}",
         "ward_id": payload.ward_id,
         "allocations": [item.model_dump() for item in payload.allocations],
+        "transactions": transactions,
         "currency": payload.currency,
         "simulation": payload.simulation,
         "status": "Allocation saved",
-        # Blockchain status separated from DB save (as required by README)
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        # Blockchain status stays separate from the save (as required by README)
         "blockchain": {
             "network": "Solana Devnet",
-            "status": "simulated_confirmed",
-            "tx_signature": "5Knp8ZfXbU1eM8x7pP9t9V7YqM3r5L8K1n2v6W4qJ9s7T2x5C8m3B1p7Z9y2X6a4D",
-            "explorer_url": "https://explorer.solana.com/tx/5Knp8ZfXbU1eM8x7pP9t9V7YqM3r5L8K1n2v6W4qJ9s7T2x5C8m3B1p7Z9y2X6a4D?cluster=devnet"
-        }
+            "status": (
+            "simulated" if payload.simulation
+            else "skipped" if SKIP_CHAIN
+            else "confirmed"
+            ),
+            "tx_signature": first.get("signature"),
+            "explorer_url": first.get("explorer_url"),
+        },
     }
     ALLOCATIONS_DB.append(record)
 
@@ -226,6 +431,7 @@ def submit_allocation(payload: AllocationRequest):
         "receipt": record
     }
 
+>>>>>>> 90dba13b610f13702dcbe7ac0d812b1ba2f4835c
 @app.get("/api/ledger")
 def get_ledger():
     return {
