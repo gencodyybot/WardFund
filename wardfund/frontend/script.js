@@ -401,7 +401,7 @@ function addDevnetNotice() {
   const note = document.createElement("div");
   note.id = "devnetNotice";
   note.style.cssText =
-    "text-align:center;font-size:0.75rem;padding:4px 12px;color:#94a3b8;border-bottom:1px solid rgba(255,255,255,0.06);";
+    "text-align:center;font-size:0.75rem;padding:4px 12px;color:#6B7490;border-bottom:1px solid rgba(17,19,15,0.08);";
   note.textContent = "Devnet demo. Demo data. No real money.";
   if (header && header.parentNode) header.parentNode.insertBefore(note, header.nextSibling);
 }
@@ -823,7 +823,7 @@ function renderCommunityPreferencesChart(data) {
   // Update side breakdown list
   if (listEl) {
     listEl.innerHTML = '<div class="cat-heading">Top Choices</div>';
-    const colors = ["#8b5cf6", "#3b82f6", "#06b6d4", "#10b981", "#f59e0b"];
+    const colors = ["#3568D4", "#91ADFF", "#1F3A8A", "#6F8FEA", "#E66A4E"];
     data.preferences.forEach((pref, idx) => {
       const color = colors[idx % colors.length];
       const item = document.createElement("div");
@@ -871,16 +871,16 @@ function renderCommunityPreferencesChart(data) {
             label: "Community Share (%)",
             data: shares,
             backgroundColor: [
-              "rgba(139, 92, 246, 0.8)",
-              "rgba(59, 130, 246, 0.8)",
-              "rgba(6, 182, 212, 0.8)",
-              "rgba(16, 185, 129, 0.8)",
+              "rgba(53, 104, 212, 0.85)",
+              "rgba(145, 173, 255, 0.85)",
+              "rgba(31, 58, 138, 0.85)",
+              "rgba(111, 143, 234, 0.85)",
             ],
             borderColor: [
-              "#8b5cf6",
-              "#3b82f6",
-              "#06b6d4",
-              "#10b981",
+              "#3568D4",
+              "#91ADFF",
+              "#1F3A8A",
+              "#6F8FEA",
             ],
             borderWidth: 1.5,
             borderRadius: 6,
@@ -893,10 +893,10 @@ function renderCommunityPreferencesChart(data) {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: "#1e293b",
-            titleColor: "#94a3b8",
+            backgroundColor: "#0B1226",
+            titleColor: "#A9B4CC",
             bodyColor: "#f8fafc",
-            borderColor: "#334155",
+            borderColor: "#2B3E60",
             borderWidth: 1,
             padding: 8,
             callbacks: {
@@ -914,16 +914,16 @@ function renderCommunityPreferencesChart(data) {
           x: {
             grid: { display: false },
             ticks: {
-              color: "#64748b",
+              color: "#7A8296",
               font: { size: 10 },
             },
           },
           y: {
             grid: {
-              color: "rgba(255, 255, 255, 0.05)",
+              color: "rgba(17, 19, 15, 0.07)",
             },
             ticks: {
-              color: "#64748b",
+              color: "#7A8296",
               font: { size: 10 },
               callback: function (val) {
                 return val + "%";
