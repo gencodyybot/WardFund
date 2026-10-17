@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WardFund – Better data. Stronger communities.</title>
+  <meta name="description" content="WardFund civic funding demo: Explore local trends, understand community needs, and allocate funding to make a difference on Solana Devnet." />
+  <meta property="og:title" content="WardFund – Civic Funding Demo" />
+  <meta property="og:description" content="Explore local trends, understand community needs, and allocate funding on Solana Devnet." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Leaflet CDN -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- App Stylesheet -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="top-header">
+    <div class="brand-section">
+      <!-- Lotus Flower SVG Icon matching mockup -->
+      <svg class="brand-logo-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 6C20 6 15 14 15 22C15 25.5 17.5 28 20 28C22.5 28 25 25.5 25 22C25 14 20 6 20 6Z" fill="#38BDF8"/>
+        <path d="M20 10C20 10 11 16 9 24C8 28 10.5 30 13 30C16 30 18.5 26.5 19.5 23C19.5 23 18 17 20 10Z" fill="#60A5FA" fill-opacity="0.85"/>
+        <path d="M20 10C20 10 29 16 31 24C32 28 29.5 30 27 30C24 30 21.5 26.5 20.5 23C20.5 23 22 17 20 10Z" fill="#60A5FA" fill-opacity="0.85"/>
+        <path d="M20 15C20 15 5 19 4 27C3.5 31 7 32 10 32C14 32 17 27 18.5 24C18.5 24 16.5 20 20 15Z" fill="#818CF8" fill-opacity="0.75"/>
+        <path d="M20 15C20 15 35 19 36 27C36.5 31 33 32 30 32C26 32 23 27 21.5 24C21.5 24 23.5 20 20 15Z" fill="#818CF8" fill-opacity="0.75"/>
+      </svg>
+      <div class="brand-titles">
+        <span class="brand-name">WardFund</span>
+        <span class="brand-tagline">Better data. Stronger communities.</span>
+      </div>
+    </div>
+
+    <!-- Ward Selector (Keep ID: wards) -->
+    <div class="header-center">
+      <label for="wards" class="ward-select-label">Select a Ward</label>
+      <div class="select-wrapper">
+        <select id="wards" class="ward-dropdown" aria-label="Select a Ward">
+          <option value="" disabled selected>Loading wards...</option>
+        </select>
+        <svg class="select-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Header Right Badges -->
+    <div class="header-right">
+      <div class="badge-solana">
+        <!-- Solana Logo SVG -->
+        <svg class="solana-icon" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M21.2 96.6a5.5 5.5 0 0 1 3.9-1.6h78.3a2.7 2.7 0 0 1 1.9 4.7L91.4 113.6a5.5 5.5 0 0 1-3.9 1.6H9.2a2.7 2.7 0 0 1-1.9-4.7l13.9-13.9z" fill="url(#sol_g1)"/>
+          <path d="M21.2 16a5.5 5.5 0 0 1 3.9-1.6h78.3a2.7 2.7 0 0 1 1.9 4.7L91.4 33a5.5 5.5 0 0 1-3.9 1.6H9.2a2.7 2.7 0 0 1-1.9-4.7L21.2 16z" fill="url(#sol_g2)"/>
+          <path d="M106.8 56.3a5.5 5.5 0 0 1-3.9 1.6H24.6a2.7 2.7 0 0 1-1.9-4.7L36.6 39.3a5.5 5.5 0 0 1 3.9-1.6h78.3a2.7 2.7 0 0 1 1.9 4.7L106.8 56.3z" fill="url(#sol_g3)"/>
+          <defs>
+            <linearGradient id="sol_g1" x1="105" y1="95" x2="7" y2="115" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#00FFA3"/><stop offset="1" stop-color="#DC1FFF"/>
+            </linearGradient>
+            <linearGradient id="sol_g2" x1="105" y1="14" x2="7" y2="34" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#00FFA3"/><stop offset="1" stop-color="#DC1FFF"/>
+            </linearGradient>
+            <linearGradient id="sol_g3" x1="22" y1="58" x2="120" y2="38" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#00FFA3"/><stop offset="1" stop-color="#DC1FFF"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span>Solana Devnet</span>
+        <span class="solana-status"><span class="status-dot"></span>Connected</span>
+      </div>
+
+      <div class="badge-tokens">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="4" width="20" height="16" rx="2"/>
+          <line x1="2" y1="10" x2="22" y2="10"/>
+        </svg>
+        <span>300.00 WFT <span class="token-sub">(test tokens)</span></span>
+      </div>
+
+      <div class="user-avatar" title="Jane Doe (JD)">JD</div>
+    </div>
+  </header>
+
+  <!-- Error Notification Bar (Keep ID: error) -->
+  <div id="error" class="error-box" role="alert"></div>
+
+  <!-- Main App Layout -->
+  <div class="app-layout">
+    
+    <!-- Left Navigation Sidebar -->
+    <aside class="left-sidebar">
+      <ul class="nav-menu">
+        <li>
+          <button class="nav-item-btn active">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+            <span>Overview</span>
+          </button>
+        </li>
+        <li>
+          <button class="nav-item-btn">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="20" x2="18" y2="10"/>
+              <line x1="12" y1="20" x2="12" y2="4"/>
+              <line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+            <span>Ward Analysis</span>
+          </button>
+        </li>
+        <li>
+          <button class="nav-item-btn">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/>
+              <path d="M9 18h6"/>
+              <path d="M10 22h4"/>
+            </svg>
+            <span>Projects</span>
+          </button>
+        </li>
+        <li>
+          <button class="nav-item-btn">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="4" y1="21" x2="4" y2="14"/>
+              <line x1="4" y1="10" x2="4" y2="3"/>
+              <line x1="12" y1="21" x2="12" y2="12"/>
+              <line x1="12" y1="8" x2="12" y2="3"/>
+              <line x1="20" y1="21" x2="20" y2="16"/>
+              <line x1="20" y1="12" x2="20" y2="3"/>
+              <line x1="1" y1="14" x2="7" y2="14"/>
+              <line x1="9" y1="8" x2="15" y2="8"/>
+              <line x1="17" y1="16" x2="23" y2="16"/>
+            </svg>
+            <span>Funding Simulator</span>
+          </button>
+        </li>
+        <li>
+          <button class="nav-item-btn">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+            <span>Transactions</span>
+          </button>
+        </li>
+        <li>
+          <button class="nav-item-btn">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="16" x2="12" y2="12"/>
+              <line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            <span>About</span>
+          </button>
+        </li>
+      </ul>
+
+      <!-- Toronto Skyline Silhouette Bottom -->
+      <div class="sidebar-bottom">
+        <svg class="toronto-skyline-svg" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Stylized Toronto Skyline & CN Tower -->
+          <line x1="50" y1="4" x2="50" y2="58" stroke="currentColor" stroke-width="1.8"/>
+          <circle cx="50" cy="18" r="4.5" stroke="currentColor" stroke-width="1.5" fill="#0d1424"/>
+          <path d="M5 58H195" stroke="currentColor" stroke-width="1.5"/>
+          <rect x="15" y="38" width="12" height="20" stroke="currentColor" stroke-width="1.2"/>
+          <rect x="32" y="30" width="10" height="28" stroke="currentColor" stroke-width="1.2"/>
+          <path d="M60 42C60 34 78 34 78 42V58H60V42Z" stroke="currentColor" stroke-width="1.2"/>
+          <rect x="85" y="24" width="14" height="34" stroke="currentColor" stroke-width="1.2"/>
+          <rect x="104" y="32" width="16" height="26" stroke="currentColor" stroke-width="1.2"/>
+          <rect x="126" y="20" width="18" height="38" stroke="currentColor" stroke-width="1.2"/>
+          <rect x="150" y="35" width="14" height="23" stroke="currentColor" stroke-width="1.2"/>
+          <rect x="170" y="44" width="16" height="14" stroke="currentColor" stroke-width="1.2"/>
+        </svg>
+        <div class="sidebar-city-name">Toronto</div>
+        <div class="sidebar-city-tag">Real data. Real impact.</div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      
+      <!-- Current Ward Header -->
+      <section class="ward-header">
+        <svg class="ward-pin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+        <div>
+          <h1 id="wardTitle" class="ward-title-text">Ward 14 – Toronto-Danforth</h1>
+          <p class="ward-description-text">Explore local trends, understand community needs, and allocate funding to make a difference.</p>
+        </div>
+      </section>
+
+      <!-- 4 Stat Cards -->
+      <section class="stats-grid" aria-label="Ward Statistics">
+        
+        <!-- Card 1: 311 Service Requests -->
+        <article class="stat-card">
+          <div class="stat-icon-wrapper cyan">
+            <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </div>
+          <div id="statRequests" class="stat-value">2,842</div>
+          <div class="stat-label">311 Service Requests</div>
+          <div id="statTrend" class="stat-trend">↑ 15% (vs. last 6 months)</div>
+        </article>
+
+        <!-- Card 2: Noise Complaints -->
+        <article class="stat-card">
+          <div class="stat-icon-wrapper red">
+            <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <div id="statTopCategoryCount" class="stat-value">1,240</div>
+          <div id="statTopCategoryLabel" class="stat-label">Noise Complaints</div>
+          <div class="stat-trend">↑ 18% (vs. last 6 months)</div>
+        </article>
+
+        <!-- Card 3: Illegal Dumping -->
+        <article class="stat-card">
+          <div class="stat-icon-wrapper amber">
+            <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <div id="statDumpingCount" class="stat-value">892</div>
+          <div class="stat-label">Illegal Dumping</div>
+          <div class="stat-trend">↑ 22% (vs. last 6 months)</div>
+        </article>
+
+        <!-- Card 4: Parks & Rec Requests -->
+        <article class="stat-card">
+          <div class="stat-icon-wrapper green">
+            <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 19 21 5 21"/>
+              <line x1="12" y1="21" x2="12" y2="23"/>
+            </svg>
+          </div>
+          <div id="statParksCount" class="stat-value">421</div>
+          <div class="stat-label">Parks & Rec Requests</div>
+          <div class="stat-trend">↑ 7% (vs. last 6 months)</div>
+        </article>
+      </section>
+
+      <!-- Middle Row: Service Request Trends Chart + Leaflet Map -->
+      <section class="trends-map-row">
+        
+        <!-- Trends Card with Chart.js and Category Breakdown -->
+        <div id="trendCard" class="card-box">
+          <div class="card-box-header">
+            <h2 class="card-box-title">Service Request Trends</h2>
+            <p id="trendSubtitle" class="card-box-subtitle">Noise complaints in Ward 14 (last 12 months)</p>
+          </div>
+          <div class="trends-card-content">
+            <div class="trends-chart-wrapper">
+              <canvas id="trendChart"></canvas>
+            </div>
+            <div class="trends-categories-wrapper">
+              <div class="cat-heading">Top Request Categories</div>
+              <div class="cat-item">
+                <div class="cat-item-left">
+                  <span class="cat-dot" style="background-color: #8b5cf6;"></span>
+                  <span>Noise</span>
+                </div>
+                <span class="cat-item-pct">28%</span>
+              </div>
+              <div class="cat-item">
+                <div class="cat-item-left">
+                  <span class="cat-dot" style="background-color: #3b82f6;"></span>
+                  <span>Illegal Dumping</span>
+                </div>
+                <span class="cat-item-pct">20%</span>
+              </div>
+              <div class="cat-item">
+                <div class="cat-item-left">
+                  <span class="cat-dot" style="background-color: #06b6d4;"></span>
+                  <span>Property Standards</span>
+                </div>
+                <span class="cat-item-pct">15%</span>
+              </div>
+              <div class="cat-item">
+                <div class="cat-item-left">
+                  <span class="cat-dot" style="background-color: #10b981;"></span>
+                  <span>Parks & Recreation</span>
+                </div>
+                <span class="cat-item-pct">12%</span>
+              </div>
+              <div class="cat-item">
+                <div class="cat-item-left">
+                  <span class="cat-dot" style="background-color: #64748b;"></span>
+                  <span>Other</span>
+                </div>
+                <span class="cat-item-pct">25%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Toronto Ward Map Card -->
+        <div class="card-box">
+          <div class="card-box-header">
+            <h2 class="card-box-title">Toronto Ward Map</h2>
+          </div>
+          <div class="map-card-content">
+            <div id="map"></div>
+            <div class="map-legend">
+              <span>Higher need</span>
+              <div class="map-legend-bar"></div>
+              <span>Lower need</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bottom Section: Community Projects & Funding Simulator -->
+      <section class="simulator-container">
+        <div class="simulator-header">
+          <div class="simulator-title-box">
+            <h2 class="simulator-title">Community Projects & Funding Simulator</h2>
+            <p class="simulator-subtitle">Adjust the allocation to see how your $10,000 budget could be distributed.</p>
+          </div>
+          <span class="budget-badge">Total Budget: $10,000</span>
+        </div>
+
+        <!-- Dynamic Projects Grid (Keep ID: projects) -->
+        <div id="projects">
+          <!-- Rendered dynamically by script.js -->
+        </div>
+
+        <!-- Simulator Footer: Total Allocated + Confirm Button -->
+        <div class="simulator-actions-bar">
+          <div class="total-status-group">
+            <div id="totalCheckIcon" class="total-check-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <div class="total-text-col">
+              <span class="total-label">Total Allocated</span>
+              <!-- Keep ID: total -->
+              <span id="total">$0 / $10,000</span>
+              <span id="remainingHint" class="total-sub">$10,000 remaining</span>
+            </div>
+          </div>
+
+          <div class="action-btn-col">
+            <!-- Keep ID: confirm -->
+            <button id="confirm" disabled>
+              <span>Execute Allocation →</span>
+            </button>
+            <span class="confirm-subtext">This will send test tokens on Solana Devnet</span>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Right Sidebar Panel -->
+    <aside class="right-panel">
+      
+      <!-- AI Insights Card (Gemini) -->
+      <div class="right-card">
+        <div class="right-card-header">
+          <div class="card-title-group">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2">
+              <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/>
+            </svg>
+            <h3 style="font-size: 0.95rem; font-weight: 600;">AI Insights</h3>
+          </div>
+          <span class="gemini-badge">✦ Powered by Gemini</span>
+        </div>
+
+        <!-- Keep ID: summary (Set with textContent, not innerHTML) -->
+        <div id="summary">Loading ward AI summary...</div>
+
+        <!-- Sources Section (Keep ID: sources) -->
+        <div class="sources-container">
+          <span class="sources-label">Sources:</span>
+          <div id="sources"></div>
+        </div>
+
+        <button class="view-report-btn">
+          <span>View full report →</span>
+        </button>
+      </div>
+
+      <!-- Project Balances Card -->
+      <div class="right-card">
+        <div class="right-card-header">
+          <h3 style="font-size: 0.92rem; font-weight: 600;">Project Balances</h3>
+          <span style="font-size: 0.72rem; color: #94a3b8;">(Solana Devnet)</span>
+        </div>
+
+        <div id="projectBalances" class="project-balances-list">
+          <div class="balance-item">
+            <div class="balance-left">
+              <div class="balance-icon green">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
+                  <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+                </svg>
+              </div>
+              <div class="balance-name-group">
+                <span class="balance-name">Greener Danforth</span>
+                <span class="balance-wallet">0x4aS...9f2e</span>
+              </div>
+            </div>
+            <div class="balance-right">
+              <span>100.00 WFT</span>
+              <span class="status-dot"></span>
+            </div>
+          </div>
+
+          <div class="balance-item">
+            <div class="balance-left">
+              <div class="balance-icon blue">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+              </div>
+              <div class="balance-name-group">
+                <span class="balance-name">Clean & Safe Streets</span>
+                <span class="balance-wallet">0x8b7...1f04</span>
+              </div>
+            </div>
+            <div class="balance-right">
+              <span>100.00 WFT</span>
+              <span class="status-dot"></span>
+            </div>
+          </div>
+
+          <div class="balance-item">
+            <div class="balance-left">
+              <div class="balance-icon purple">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <div class="balance-name-group">
+                <span class="balance-name">Community Programs</span>
+                <span class="balance-wallet">0x2e6...7a8b</span>
+              </div>
+            </div>
+            <div class="balance-right">
+              <span>100.00 WFT</span>
+              <span class="status-dot"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Transaction & Ledger Card -->
+      <div class="right-card">
+        <div class="right-card-header">
+          <h3 style="font-size: 0.92rem; font-weight: 600;">Recent Transaction</h3>
+        </div>
+
+        <div id="recentTxBox" class="recent-tx-notification">
+          <div class="tx-header-status">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <span>Allocation executed successfully!</span>
+          </div>
+          <div class="tx-sig-row">
+            <span>Tx Signature:</span>
+            <a id="recentTxSigLink" class="tx-sig-link" href="https://explorer.solana.com" target="_blank" rel="noopener noreferrer">5KG2...8Fse ↗</a>
+          </div>
+          <a id="recentTxExplorerLink" class="view-explorer-link" href="https://explorer.solana.com" target="_blank" rel="noopener noreferrer">
+            View on Solana Explorer ↗
+          </a>
+        </div>
+
+        <!-- Keep ID: ledger -->
+        <div id="ledger">
+          <!-- Ledger records populated here -->
+        </div>
+      </div>
+
+      <!-- Powered By Partner Badges -->
+      <div class="powered-footer">
+        <div class="powered-title">Powered by</div>
+        <div class="powered-logos">
+          <div class="partner-logo">
+            <svg class="partner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <path d="M3 9h18M9 21V9"/>
+            </svg>
+            <span>Toronto Open Data</span>
+          </div>
+          <div class="partner-logo">
+            <svg class="partner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/>
+            </svg>
+            <span>Gemini AI</span>
+          </div>
+          <div class="partner-logo">
+            <svg class="partner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+            <span>Solana Devnet</span>
+          </div>
+          <div class="partner-logo">
+            <svg class="partner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M12 3a9 9 0 0 0 0 18v-9Z"/>
+            </svg>
+            <span>Tiger Data</span>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+  </div>
+
+  <!-- Main JavaScript File -->
+  <script src="script.js"></script>
+</body>
+</html>
