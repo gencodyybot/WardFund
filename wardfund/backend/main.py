@@ -9,7 +9,13 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+# --- Tiger Data / PostgreSQL Imports ---
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+# Look for .env in both backend/ and the parent wardfund/ folder:
 load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 app = FastAPI(title="WardFund API", version="1.0.0")
 
@@ -21,8 +27,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize Google Gen AI with GEMINI_API_KEY from environment
+# Configuration from environment variables
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Initialize Google Gen AI with GEMINI_API_KEY
 gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 # --- Datastore matching script.js DEMO_DATA exactly ---
@@ -133,7 +142,8 @@ def health():
     return {
         "status": "ok",
         "chain": "devnet",
-        "gemini_active": bool(gemini_client)
+        "gemini_active": bool(gemini_client),
+        "tiger_data_active": bool(DATABASE_URL)
     }
 
 # 1. GET /api/wards
@@ -151,8 +161,38 @@ def get_ward_summary(ward_id: str):
         "source": "https://open.toronto.ca/dataset/311-service-requests-customer-initiated/"
     }
 
-# 3. POST /api/wards/{ward_id}/ask (Fixed 404!)
-# 3. POST /api/wards/{ward_id}/ask (Natural conversational Gemini)
+# 3. GET /api/wards/{ward_id}/trend (⚡ Powered by Tiger Data TimescaleDB time_bucket)
+@app.get("/api/wards/{ward_id}/trend")
+def get_ward_trend_tigerdata(ward_id: str):
+    # If Tiger Data is configured, run the real TimescaleDB time-series query
+    if DATABASE_URL:
+        try:
+            conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+            cur = conn.cursor()
+
+            query = """
+            SELECT 
+                to_char(time_bucket('1 month', requested_at), 'Mon') AS day,
+                COUNT(*) AS n
+            FROM service_requests_311
+            WHERE ward_id = %s
+            GROUP BY 1, time_bucket('1 month', requested_at)
+            ORDER BY time_bucket('1 month', requested_at) ASC;
+            """
+            cur.execute(query, (ward_id,))
+            rows = cur.fetchall()
+            cur.close()
+            conn.close()
+            if rows:
+                return rows
+        except Exception as e:
+            print("Tiger Data query error (using fallback):", e)
+
+    # Fallback trend if DB not yet connected or empty
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    return [{"day": m, "n": 40 + i * 12} for i, m in enumerate(months)]
+
+# 4. POST /api/wards/{ward_id}/ask (Conversational Gemini AI)
 @app.post("/api/wards/{ward_id}/ask")
 async def ask_gemini(ward_id: str, request: Request):
     ward = next((w for w in WARDS if w["id"] == ward_id), None) or WARDS[0]
@@ -169,7 +209,6 @@ async def ask_gemini(ward_id: str, request: Request):
     if not gemini_client:
         return {"answer": "Gemini API key is not configured."}
 
-    # Simple, natural context just like chatting on gemini.google.com
     prompt = f"""
 Ward context:
 You are assisting someone looking at Toronto's {ward['name']}.
@@ -184,7 +223,6 @@ Here are the recent 311 service request stats for this ward:
 """
 
     try:
-        # Standard conversational model call with default freedom
         response = gemini_client.models.generate_content(
             model="gemini-3.8-flash",
             contents=prompt,
@@ -193,12 +231,12 @@ Here are the recent 311 service request stats for this ward:
     except Exception as e:
         return {"answer": f"Error: {str(e)}"}
 
-# 4. GET /api/projects
+# 5. GET /api/projects
 @app.get("/api/projects")
 def get_projects():
     return {"projects": PROJECTS}
 
-# 5. POST /api/allocate
+# 6. POST /api/allocate
 @app.post("/api/allocate")
 async def allocate(request: Request):
     payload = await request.json()
@@ -232,7 +270,7 @@ async def allocate(request: Request):
         }
     }
 
-# 6. GET /api/community-preferences
+# 7. GET /api/community-preferences
 @app.get("/api/community-preferences")
 def get_community_preferences():
     return {
@@ -256,7 +294,7 @@ def get_community_preferences():
         ]
     }
 
-# 7. GET /api/ledger
+# 8. GET /api/ledger
 @app.get("/api/ledger")
 def get_ledger():
     return {"ledger_entries": LEDGER_ENTRIES}
